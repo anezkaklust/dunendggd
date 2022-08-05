@@ -1,43 +1,53 @@
-# Dune-ND-GGD
+# DUNE Near Detector Geometries in GeGeDe for TOAD
 
-This is a tool to build proposal geometries for DUNE near detector.
+This is a repository for developing any [DUNE (Near Detector) geometries](https://github.com/DUNE/dunendggd) with [gegede](https://github.com/brettviren/gegede). 
 
-dunendggd is based on the sophisticated package called [GeGeDe](https://github.com/brettviren/gegede)
+Specifically, this fork of the repository is focused on creating a geometry for [The Teststand of an Overpressure Argon Detector (TOAD)](https://indico.fnal.gov/event/54624/contributions/244519/subcontributions/8549/attachments/156742/204687/HPgTPCTestBeamIntro_050722.pdf).
 
-# Setup
-This package could be installed as user, on unix environment:
+## Getting Started
+
+See the [gegede installation page](https://github.com/brettviren/gegede/blob/master/doc/install.org) for the prerequisites. Similarly to 
+[duneggd](https://github.com/DUNE/duneggd), install `virtualenv`:
 
 ```bash
-python setup.py develop --user
+wget https://pypi.python.org/packages/source/v/virtualenv/virtualenv-1.11.tar.gz
+tar -xf virtualenv-1.11.tar.gz
+python virtualenv-1.11/virtualenv.py dunendggd_toad
 ```
-Don't forget to check your variable `PATH`
+
+And clone this repository:
 ```bash
-export PATH=~/.local/bin/:${PATH}
+git clone https://github.com/anezkaklust/dunendggd_toad
 ```
-As root privileges:
+
+## Setup
+
+Each time you login on your machine, you need to activate your virtual environment, setup `duneggd_toad`, and set your python path:
+
 ```bash
-python setup.py develop
+source dunendggd_toad/bin/activate
+cd dunendggd_toad/
+python setup.py develop --user 
+export PATH=`pwd`/dunendggd_toad/bin:${PATH}
 ```
 
 
-# Example
-To run an example containing basic detectors, you could process like:
+## TOAD Geometry
+To create `.gdml` file of TOAD, run 
+
 ```bash
-gegede-cli duneggd/Config/PRIMggd_example.cfg duneggd/Config/DETENCLOSURE-prim-only.cfg duneggd/Config/WORLDggd.cfg -w World -o example.gdml
+gegede-cli duneggd_toad/Config/TOAD_Concept.cfg  -o toad_concept.gdml
 ```
 
-To run a full example containing surrounded magnet
+## Visualization
+To visualize your geometry file you can use ROOT:
 ```bash
-gegede-cli duneggd/Config/PRIMggd_example.cfg duneggd/Config/SECggd_example.cfg duneggd/Config/DETENCLOSURE.cfg duneggd/Config/WORLDggd.cfg -w World -o full_example.gdml
+root -l 'geoDisplay.C("toad_concept.gdml",5)''
 ```
 
-# Quick Visualization
-To do a quick check or your geometry file you can use ROOT-CERN:
-```bash
-root -l 'geoDisplay.C("example.gdml")'
-```
-
-# Contact
+## Contact
+* **TOAD geometry:**
+   * Anežka Klustová `a.klustova20@imperial.ac.uk`
 * **dunendggd:**
   * Guang Yang `guang.yang.1@stonybrook.edu`
   * Jose Palomino`jose.palominogallo@stonybrook.edu`
