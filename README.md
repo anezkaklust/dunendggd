@@ -2,7 +2,7 @@
 
 This is a repository for developing any [DUNE (Near Detector) geometries](https://github.com/DUNE/dunendggd) with [gegede](https://github.com/brettviren/gegede). 
 
-Specifically, this fork of the repository is focused on creating a geometry for The Teststand of an Overpressure Argon Detector (TOAD).
+Specifically, this fork of the repository is focused on creating a geometry for [The Teststand of an Overpressure Argon Detector (TOAD)](https://indico.fnal.gov/event/54624/contributions/244519/subcontributions/8549/attachments/156742/204687/HPgTPCTestBeamIntro_050722.pdf).
 
 ## Getting Started
 
