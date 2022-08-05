@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 '''
-TOAD_Builder: Builds the multi purpose tracker
+TOAD_Builder: Builds the The Teststand of an Overpressure Argon Detector (TOAD) geometry
 '''
 
 import gegede.builder
@@ -11,25 +11,20 @@ from math import asin, sqrt
 
 class TOAD_Builder(gegede.builder.Builder):
     '''
-    Build a concept of the TOAD detector. This class directly
-    sub-builders for the GArTPC and the Pressure Vessel.
+    Build a concept of the TOAD detector - only one subclass.
 
     Arguments:
     buildGarTPC: Flag to build the GArTPC
-    buildPV: Flag to build the Pressure Vessel
-
     '''
 
-    defaults=dict( innerBField="0.0 T, 0.0 T, 0.0 T",
-                   TPCStepLimit = "10 mm",
-                   buildGarTPC=True,
+    defaults=dict( buildGarTPC=True,
                    space=Q("10cm")
                    )
 
     #^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^~^
     def construct(self, geom):
 
-        ''' Top level volume (MPD) - It is rotated later in the cavern (x, y, z) -> (z, y, x)'''
+        ''' Top level volume - It is rotated later in the cavern (x, y, z) -> (z, y, x)'''
         
         #  to define materials (!!)
         materials.define_materials(geom)
@@ -38,20 +33,17 @@ class TOAD_Builder(gegede.builder.Builder):
         dy_main=Q('8m')+self.space #dimension in height
         dz_main=Q('8m')+self.space #dimension perp to the beam
 
-        print("Dimension of the MPD in along the beam ", dx_main*2, " dimension in height ", dy_main*2, " and dimension perp to the beam ", dz_main*2)
+        print("Dimension of the top level volume in along the beam ", dx_main*2, " dimension in height ", dy_main*2, " and dimension perp to the beam ", dz_main*2)
 
-        main_shape = geom.shapes.Box('MPD', dx=dx_main, dy=dy_main, dz=dz_main)
+        main_shape = geom.shapes.Box('TOAD', dx=dx_main, dy=dy_main, dz=dz_main)
         main_lv = geom.structure.Volume('vol'+main_shape.name, material='Air', shape=main_shape)
 
         self.add_volume(main_lv)
 
-        ##### build a fake volume that contains the MPD without the magnet to define the magnetized volume correctly ###
-        # fake_lv = self.buildMagnetizedVolume(main_lv, geom)
 
-        ######### build the TPC       ##########################
-        # use GArTPC Builder, but "disable" the cyrostat by tweaking
-        # EndcapThickness, WallThickness, and ChamberMaterial
-        # do that in the cfg file
+        ######### build the TOAD TPC + pressure vessel ##########################
+        # use GArTPC TOAD Builder
+        # define dimensions and materials in the cfg file
         if self.buildGarTPC:
             print("Adding TPC to main volume")
             self.build_gartpc(main_lv, geom)
@@ -64,17 +56,7 @@ class TOAD_Builder(gegede.builder.Builder):
         # x along the electric field
         # z along the beam
         # rotate X to Z
-        #self.RockRotation()
 
-        ######### build the pressure vessel  ###################
-        # Build the Pressure Vessel using the parameters in the cfg file
-        # The PV consists of a cylinder for the Barrel and
-        # the intersection of the cylinder and a sphere for the Endcaps
-        #if self.buildPV:
-        #    print("Adding PV to main volume")
-        #    self.build_pressure_vessel(main_lv, geom)
-
-    
         return
 
     
@@ -87,9 +69,6 @@ class TOAD_Builder(gegede.builder.Builder):
 
         tpc_vol = tpc_builder.get_volume()
         print(tpc_vol)
-        # Add the magnetic field to the volume
-        #tpc_vol.params.append(("BField", self.innerBField))
-        #tpc_vol.params.append(("StepLimit", self.TPCStepLimit))
 
         tpc_pla = geom.structure.Placement("GArTPC"+"_pla", volume=tpc_vol)
         # Place it in the main lv

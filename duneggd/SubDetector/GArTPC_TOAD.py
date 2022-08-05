@@ -1,19 +1,23 @@
-""" GArTPC.py
+""" GArTPC_TOAD.py
 
-A basic builder for a gas TPC consisting of a cylindrical chamber
-with two back-to-back rectangular active volmes.
+Author: Anežka Klustová, Imperial College London, a.klustova20@imperial.ac.uk
 
-Original Author: J. Lopez, U. Colorado
+Based on GArTPC.py by J. Lopez, U. Colorado
+
+A basic builder for a gas TPC for TOAD consisting of:
+- a cylindrical chamber with two endcaps filled with gas
+- a cylindrical pressure vessel with two endcaps 
+- cathode
+- field cage
+- OROC
+
+Gas region (cylindrical volume + endcaps) is an active volume.
 
 TO DO:
 
-Start splitting the various volumes into separate builders or
-use equivalent existing builders whenever possible.
-
-Validate that rotations for x and y drift are in the correct
-direction.
-
-Add in electric field?
+- Offset of the terminator from the OROC?
+- Make metal clamps?
+- Include finer structure of the OROC - wedges?
 
 """
 
@@ -25,43 +29,22 @@ from math import *
 
 
 class GArTPCBuilder(gegede.builder.Builder):
-    """ Class to build a gaseous argon TPC geometry.
+    """ Class to build a gaseous argon TPC geometry with pressure vessel
+        and inner components."
 
     Attributes:
-        ChamberRadius: Outer radius of the vacuum vessel.
-        ChamberLength: Full length of the vacuum vessel.
-        WallThickness: Thickness of the rounded wall of the vessel.
-        ChamberMaterial: Material used to build the vacuum vessel.
-        BField: Magnetic field in the volume.
+        halfDimension: Dimensions of the entire bounding volume holding the geometry.
+        ChamberRadius: Inner radius of the vacuum vessel.
+        ChamberLength: Full length of the straight part of the vessel.
         GasType: Name of gas material.
         GasDensity: Density of gas (only used for custom gas mixes).
         Composition: Composition of a custom gas mixture.
-        halfDimension: Dimensions of volume holding the TPC geometry.
-        tpcDimension: Dimensions of each TPC volume.
-        TPCisCyl: True for a cylindrical TPC. Set from tpcDimension
-        Radius: Radius for a cylindrical TPC.
-        HalfX: Half length of TPC in x-direction
-        HalfY: Half length of TPC in y-direction
-        HalfZ: Half of drift distance.
         Drift: Drift axis (always z for a cylindrical TPC)
-        TPCGap: Half of spacing between TPCs. Reset when central
-                electrode is created.
         SmallGap: A small distance to help prevent overlaps
-        PadThickness: Thickness of PCB holding readout pads
-        PadMaterial: Material of PCB holding readout pads
-        PadOffset: Offset from TPC active volume (due to wire grids)
-        PadFrameThickness: Thickness of support structure behind PCB
-        PadFrameMaterial: Material of support structure.
-        CentElectrodeHCThickness: Thickness of honeycomb or similar
-                structure separating two electrode sheets
-        CentElectrodeThickness: Thickness of mylar (or similar)
-                sheet used to make the central electrode
-        BuildEmpty: if True, build a volume the size of the TPC
-                but filled with NoGas. Useful for antifiducial generation.
     """
 
-    def configure(self,chamberDimension,tpcDimension,
-                  halfDimension,GasType,BField=None,drift='z',**kwargs):
+    def configure(self,chamberDimension,
+                  halfDimension,GasType,drift='z',**kwargs):
 
         """ Set the configuration for the geometry.
 
@@ -69,119 +52,22 @@ class GArTPCBuilder(gegede.builder.Builder):
             if Material is a dict-type rather than a string.
 
             Args:
-                chamberDimension: Outer dimensions of vauum vessel.
-                    Dict. with keys 'r' and 'dz'
-                tpcDimension: Dimensions of each TPC.
-                    Dict with keys 'dx','dy','dz'
                 halfDimension: Half-dimensions of bounding volume.
                     Dict with keys 'rmin', 'rmax' and 'dz' (dz=half of length)
+                chamberDimension: Outer dimensions of vauum vessel.
+                    Dict. with keys 'r' and 'dz'
                 GasType: Gas material. String if using a standard
                     material, dict in the form {material:mass_fraction,...}
-                bfield: Magnetic field (3D array-like). Don't use if a
-                    magnetic field was set in a parent volume.
                 drift: The drift direction. (x, y, or z)
                 kwargs: Additional keyword arguments. Allowed are:
-                    WallThickness,
-                    ChamberMaterial, GasName, Density,
-                    PadThickness, PadMaterial, PadOffset,
-                    PadFrameThickness,PadFrameMaterial
-                    CentElectrodeHCThickness,
-                    CentElectrodeThickness,BuildEmpty
+                    TO DO - write list
         """
 
-        # The vacuum chamber is a G4Tubs for now
-        self.ChamberRadius = chamberDimension['r']
-        self.ChamberLength = chamberDimension['dz']
+        self.halfDimension = halfDimension # bounding volume
+        self.Material = 'Air' # material  of the boudning volume
+        self.Drift = drift
+        self.SmallGap = Q('0.001mm') # safety for overlaps
 
-        self.WallThickness = Q("1cm")
-        self.ChamberMaterial = "Steel"
-        self.BuildEmpty = False
-        if 'WallThickness' in list(kwargs.keys()):
-            self.WallThiciness = kwargs['WallThickness']
-        if 'ChamberMaterial' in list(kwargs.keys()):
-            self.ChamberMaterial = kwargs['ChamberMaterial']
-        if 'BuildEmpty' in list(kwargs.keys()):
-            self.BuildEmpty = kwargs['BuildEmpty']
-
-        # Field Cage Rings 
-        self.rInnerFC = Q("55.5cm")
-        if "rInnerFC" in list(kwargs.keys()):
-            self.rInnerFC = kwargs['rInnerFC']
-        self.rOuterFC = Q("56.1cm")
-        if "rOuterFC" in list(kwargs.keys()):
-            self.rOuterFC = kwargs['rOuterFC']
-        self.fc_nRings = "12"
-        if "fc_nRings" in list(kwargs.keys()):
-            self.fc_nRings = kwargs['fc_nRings']
-        self.fc_RingSpacing = Q("2.5cm")
-        if "fc_RingSpacing" in list(kwargs.keys()):
-            self.fc_RingSpacing = kwargs['fc_RingSpacing']
-        self.fc_material = "Steel"
-        if "fc_material" in list(kwargs.keys()):
-            self.fc_material = kwargs['fc_material']
-        self.fc_dZring =  Q("1cm")
-
-
-        # OROC trapezoid
-        self.oroc_dx1_upper = Q("467.747mm")
-        if "oroc_dx1_upper" in list(kwargs.keys()):
-            self.oroc_dx1_upper = kwargs['oroc_dx1_upper']
-        self.oroc_dx2_lower =  Q("870.478mm")
-        if "oroc_dx2_lower" in list(kwargs.keys()):
-            self.oroc_dx2_lower = kwargs['oroc_dx2_lower']
-        self.oroc_dy1_thickness =  Q("21.8mm") 
-        if "oroc_dy1_thickness" in list(kwargs.keys()):
-            self.oroc_dy1_thickness  = kwargs['oroc_dy1_thickness']
-        self.oroc_dy2_thickness =  Q("21.8mm")
-        if "oroc_dy2_thickness" in list(kwargs.keys()):
-            self.oroc_dy2_thickness  = kwargs['oroc_dy2_thickness']
-        self.oroc_dz_height =  Q("1142mm")
-        if "oroc_dz_height" in list(kwargs.keys()):
-            self.oroc_dz_height = kwargs['oroc_dz_height']
-        self.oroc_material =  "Steel"
-        if "oroc_material" in list(kwargs.keys()):
-            self.oroc_material = kwargs['oroc_material']
-
-        # Cathode
-        # wires are made from 27 micro meters diameter mesh
-        self.c_holder_rInner = Q("56cm") # inner diameter is 112cm
-        if "c_holder_rInner" in list(kwargs.keys()):
-            self.c_holder_rInner = kwargs['c_holder_rInner']
-        self.c_holder_rOuter = Q("59cm") # outer diameter 118cm
-        if "c_holder_rOuter" in list(kwargs.keys()):
-            self.c_holder_rOuter = kwargs['c_holder_rOuter']
-        self.c_holder_material = "Steel"
-        if "c_holder_material" in list(kwargs.keys()):
-            self.c_holder_material = kwargs['c_holder_material']
-        self.c_holder_thickness = Q("1mm") #steel ring is 1mm wide
-        if "c_holder_thickness" in list(kwargs.keys()):
-            self.c_holder_thickness = kwargs['c_holder_thickness']
-        self.c_rInner =  Q("0mm")
-        if "c_rInner" in list(kwargs.keys()):
-            self.c_rInner = kwargs['c_rInner']
-        self.c_rOuter =  Q("56cm") # solid ring
-        if "c_rOuter" in list(kwargs.keys()):
-            self.c_rOuter = kwargs['c_rOuter']
-        self.c_material = "Steel"
-        if "c_material" in list(kwargs.keys()):
-            self.c_material = kwargs['c_material']
-        self.c_thickness = Q("0.025mm") # thickness of the mesh is about 25 microns
-        if "c_thickness" in list(kwargs.keys()):
-            self.c_thickness= kwargs['c_thickness']
-
-
-        # Should be a 3D array Quantity objects
-        # Will support dipole and solenoid type fields
-        # Really should be set with a magnet builder but here for testing
-        # Not currently used
-        self.BField = BField
-        self.TPCStepLimit = "10 mm"
-        self.Material = 'Air'
-        if self.BuildEmpty:
-            self.Material='NoGas'
-            self.GasType='NoGas'
-            GasType='NoGas'
-            self.ChamberMaterial='NoGas'
         # The gas
         if type(GasType)==str:
             # Set from a pre-defined material
@@ -197,70 +83,163 @@ class GArTPCBuilder(gegede.builder.Builder):
             self.GasType = kwargs['GasName']
             self.GasDensity = kwargs['Density']
 
-        self.halfDimension = halfDimension
-        # The TPCs: Boxes at the center of the vacuum chamber
-        self.tpcDimension = tpcDimension
-        if 'dx' in tpcDimension:
-            self.HalfX = tpcDimension['dx']/2
-            self.HalfY = tpcDimension['dy']/2
-            self.HalfZ = tpcDimension['dz']/2
-            self.Drift = drift
-            self.TPCisCyl = False
-        else:
-            self.Radius = tpcDimension['r']
-            self.HalfZ = tpcDimension['dz']/2
-            self.Drift = 'z'
-            self.TPCisCyl = True
+        # Gaseous Chamber Details
+        self.ChamberRadius = chamberDimension['r'] # inner radius
+        self.ChamberLength = chamberDimension['dz'] # length of the straight part of the vessel
+        self.RailLength = Q("625mm") # centered in the pressure vessel, shorted than the length of the vessel
+        self.EndCapBulge = Q("32.5cm")
 
-        # A bit of space for the central electrode
-
-        self.TPCGap = Q('2mm')
-        self.SmallGap = Q('0.001mm')
-        self.CentElectrodeHCThickness = Q('6mm')
-        self.CentElectrodeThickness = Q('0.02mm')
-
-        # Readout Pad Stuff
-
-        self.PadThickness = Q('5mm')
-        self.PadMaterial = 'FR4'
-        self.PadOffset = Q('9mm')
-        self.PadFrameThickness = Q('1.5cm')
-        self.PadFrameMaterial = 'Aluminum'
-
-        if 'PadThickness' in list(kwargs.keys()):
-            self.PadThickness = kwargs['PadThickness']
-        if 'PadMaterial' in list(kwargs.keys()):
-            self.PadMaterial = kwargs['PadMaterial']
-        if 'PadFrameThickness' in list(kwargs.keys()):
-            self.PadFrameThickness = kwargs['PadFrameThickness']
-        if 'PadFrameMaterial' in list(kwargs.keys()):
-            self.PadFrameMaterial = kwargs['PadFrameMaterial']
-        if 'PadOffset' in list(kwargs.keys()):
-            self.PadOffset = kwargs['PadOffset']
-        if 'CentElectrodeHCThickness' in list(kwargs.keys()):
-            self.CentElectrodeHCThickness = \
-                 kwargs['CentElectrodeHCThickness']
-        if 'CentElectrodeThickness' in list(kwargs.keys()):
-            self.CentElectrodeThickness = \
-                 kwargs['CentElectrodeThickness']
-
-        self.TerminatorOffset = Q("284mm")
-        self.t_thickness = Q("1mm")
-        self.RailLength = Q("625mm")
-        self.pvEndCapBulge = Q("32.5cm")
-        self.rInnerTPC=Q("70cm")
+        # Pressure vessel
         self.pvThickness = Q("1cm")
+        if 'pvThickness' in list(kwargs.keys()):
+            self.pvThickness = kwargs['pvThickness']
         self.pvMaterial = "Steel"
+        if 'pvMaterial' in list(kwargs.keys()):
+            self.pvMaterial= kwargs['pvMaterial']
+
+        # Field Cage (Rings)
+        self.fcInnerRadius = Q("55.5cm")
+        if "fcInnerRadius" in list(kwargs.keys()):
+            self.fcInnerRadius= kwargs['fcInnerRadius']
+        self.fcOuterRadius = Q("56.1cm")
+        if "fcOuterRadius" in list(kwargs.keys()):
+            self.fcOuterRadius = kwargs['fcOuterRadius']
+        self.fcNRings = "12"
+        if "fcNRings" in list(kwargs.keys()):
+            self.fcNRings = kwargs['fcNRings']
+        self.fcRingSpacing = Q("2.5cm")
+        if "fcRingSpacing" in list(kwargs.keys()):
+            self.fcRingSpacing = kwargs['fcRingSpacing']
+        self.fcMaterial = "Steel"
+        if "fcMaterial" in list(kwargs.keys()):
+            self.fcMaterial = kwargs['fcMaterial']
+        self.fcRingThickness =  Q("1cm")
+        if "fcRingThickness" in list(kwargs.keys()):
+            self.fcRingThickness = kwargs['fcRingThickness']
+        self.fcTerminatorFirstRingOffset = Q("43mm")
+        if "fcTerminatorFirstRingOffset" in list(kwargs.keys()):
+            self.cTerminatorFirstRingOffset = kwargs['fcTerminatorFirstRingOffset']
+
+        # OROC trapezoid
+        # x, y, z correpond to x, y, z orientation of the bounding volume
+        # Upper, Lower, Thickness, Height correspond to the actual orientation after placing
+        # it in the chamber (after rotation about 270 deg around x)
+        self.orocMaterial=  "Aluminum"
+        if "orocMaterial" in list(kwargs.keys()):
+            self.orocMaterial = kwargs['orocMaterial']
+        c = Q("467.747mm")
+        if "orocUpper_dx1" in list(kwargs.keys()):
+            self.orocUpper_dx1 = kwargs['orocUpper_dx1']
+        self.orocLower_dx2 =  Q("870.478mm")
+        if "orocLower_dx2" in list(kwargs.keys()):
+            self.orocLower_dx2 = kwargs['orocLower_dx2']
+        self.orocThickness_dy1 =  Q("21.8mm") 
+        if "orocThickness_dy1" in list(kwargs.keys()):
+            self.orocThickness_dy1 = kwargs['orocThickness_dy1']
+        self.orocThickness_dy2 =  self.orocThickness_dy1 # same thickness everywhere
+        if "orocThickness_dy2" in list(kwargs.keys()):
+           self.orocThickness_dy2  = kwargs['orocThickness_dy2']
+        self.orocHeight_dz =  Q("1142mm")
+        if "orocHeight_dz" in list(kwargs.keys()):
+            self.orocHeight_dz = kwargs['orocHeight_dz']
+        self.orocOffset_y = Q("56mm") # calculated
+        # PUT HOW CALCULATED
+        if "orocOffset_y" in list(kwargs.keys()):
+            self.orocOffset_y = kwargs['orocOffset_y']
+
+        # OROC pad frame
+        # same material, also Aluminum
+        self.orocFrameThickness_dy1  =  Q("62mm")
+        if "orocFrameThickness_dy1" in list(kwargs.keys()):
+           self.orocFrameThickness_dy1 = kwargs['orocFrameThickness_dy1']
+        self.orocFrameThickness_dy2  =  self.orocFrameThickness_dy1 
+        if "orocFrameThickness_dy2" in list(kwargs.keys()):
+           self.orocFrameThickness_dy2 = kwargs['orocFrameThickness_dy2']
+        self.orocFrameHeight_dz = Q("1027mm")
+        self.orocFrameVerticalDivisionThickness_dx1 = Q("16mm")
+        if "orocFrameVerticalDivisionThickness_dx1" in list(kwargs.keys()):
+           self.orocFrameVerticalDivisionThickness_dx1 = kwargs['orocFrameVerticalDivisionThickness_dx1']
+        self.orocFrameVerticalDivisionThickness_dx2 = self.orocFrameVerticalDivisionThickness_dx1  # same
+        if "orocFrameVerticalDivisionThickness_dx2" in list(kwargs.keys()):
+           self.orocFrameVerticalDivisionThickness_dx2 = kwargs['orocFrameVerticalDivisionThickness_dx2']
+        self.orocFrameVerticalDivisionDepth_dy1 = Q("42.5mm")
+        if "orocFrameVerticalDivisionDepth_dy1" in list(kwargs.keys()):
+           self.orocFrameVerticalDivisionDepth_dy1 = kwargs['orocFrameVerticalDivisionDepth_dy1']
+        self.orocFrameVerticalDivisionDepth_dy2 = self.orocFrameVerticalDivisionDepth_dy1  # same
+        if "orocFrameVerticalDivisionDepth_dy2" in list(kwargs.keys()):
+           self.orocFrameVerticalDivisionDepth_dy2 = kwargs['orocFrameVerticalDivisionDepth_dy2']
+        self.orocFrameOffset_y = Q("77.5mm")  # calculated
+        # PUT HOW CALCULATED
+        if "orocFrameOffset_y " in list(kwargs.keys()):
+            self.orocFrameOffset_y  = kwargs['orocFrameOffset_y ']
+
+        # Cathode
+        # Wire mesh ~ 25 microns thick
+        self.CathodeMaterial = "Steel"
+        if "CathodeMaterial" in list(kwargs.keys()):
+            self.CathodeMaterial= kwargs['CathodeMaterial']
+        self.CathodeThickness = Q("0.025mm") # thickness of the mesh is about 25 microns
+        if "CathodeThickness" in list(kwargs.keys()):
+            self.c_thickness= kwargs['CathodeThickness']
+        self.CathodeInnerRadius =  Q("0mm")
+        if "CathodeInnerRadius" in list(kwargs.keys()):
+            self.c_rInner = kwargs['CathodeInnerRadius']
+        self.CathodeOuterRadius =  Q("56cm") # solid ring
+        if "CathodeOuterRadius" in list(kwargs.keys()):
+            self.CathodeOuterRadius = kwargs['CathodeOuterRadius']
+
+        # Cathode Holder
+        self.CathodeHolderMaterial = "Steel"
+        if "CathodeHolderMaterial" in list(kwargs.keys()):
+            self.CathodeHolderMaterial = kwargs['CathodeHolderMaterial']
+        self.CathodeHolderThickness = Q("1mm") #steel ring is 1mm wide
+        if "CathodeHolderThickness" in list(kwargs.keys()):
+            self.CathodeHolderThickness  = kwargs['CathodeHolderThickness']
+        self.CathodeHolderInnerRadius = Q("56cm") # inner diameter is 112cm
+        if "CathodeHolderInnerRadius" in list(kwargs.keys()):
+            self.CathodeHolderInnerRadius = kwargs['CathodeHolderInnerRadius']
+        self.CathodeHolderOuterRadius= Q("59cm") # outer diameter 118cm
+        if "CathodeHolderOuterRadius" in list(kwargs.keys()):
+            self.CathodeHolderOuterRadius = kwargs['CathodeHolderOuterRadius']
+
+        # Terminator 
+        # encloses the drif region on the OROC side
+        self.TerminatorOffset = Q("284mm") # offset from the end of the rail on the OROC side
+        self.TerminatorMaterial = "Steel"
+        if "TerminatorMaterial" in list(kwargs.keys()):
+            self.TerminatorMaterial = kwargs['TerminatorMaterial']
+        self.TerminatorThickness = Q("1mm")
+        if "TerminatorThickness" in list(kwargs.keys()):
+            self.TerminatorThickness  = kwargs['TerminatorThickness']
+        self.TerminatorInnerRadius = Q("0cm")
+        if "TerminatorInnerRadius" in list(kwargs.keys()):
+            self.TerminatorInnerRadius = kwargs['TerminatorInnerRadius']
+        self.TerminatorOuterRadius = Q("56cm")
+        if "TerminatorOuterRadius" in list(kwargs.keys()):
+            self.TerminatorOuterRadius = kwargs['TerminatorOuterRadius']
+
+        # Terminator Holder
+        self.TerminatorHolderMaterial = "PVC"
+        if "TerminatorHolderMaterial" in list(kwargs.keys()):
+            self.TerminatorHolderMaterial = kwargs['TerminatorHolderMaterial']
+        self.TerminatorHolderThickness = Q("1mm")
+        if "TerminatorHolderThickness" in list(kwargs.keys()):
+            self.TerminatorHolderThickness  = kwargs['TerminatorHolderThickness']
+        self.TerminatorHolderInnerRadius = Q("56cm")
+        if "TerminatorHolderInnerRadius" in list(kwargs.keys()):
+            self.TerminatorHolderInnerRadius = kwargs['TerminatorHolderInnerRadius']
+        self.TerminatorHolderOuterRadius = Q("59cm")
+        if "TerminatorHolderOuterRadius" in list(kwargs.keys()):
+            self.TerminatorHolderOuterRadius = kwargs['TerminatorHolderOuterRadius']
+
 
 
     def construct(self,geom):
         """ Construct the geometry.
 
         The standard geometry consists of a cylindrical vessel
-        filled with gas. Two TPC sensitive volumes are placed
-        within the gas, as is a central electrode.
-        After that, a readout plane and field cage are added
-        to each TPC.
+        filled with gas with two endcaps enclosed in the pressure vessel.
+        TOAD consists of cathode, field cage, OROC and the termiantor.
 
         args:
             geom: The geometry
@@ -279,15 +258,17 @@ class GArTPCBuilder(gegede.builder.Builder):
         self.add_volume(main_lv)
         print(ltools.getShapeDimensions(main_lv,geom))
 
-        rot = [Q("0deg"),Q("0deg"),Q("0deg")]
-        main_rot = geom.structure.Rotation("Main rot",rot[0],rot[1],rot[2])
-
+        ###########################################
+        ##### GASEOUS CHAMBER (STRAIGHT PART) #####
+        ###########################################
         # Construct the chamber
+        print("-------------------------------------------------")
+        print("Construct gaseous chamber - barrel")
         tpc_chamber_shape = geom.shapes.Tubs('TPCChamber',
-                                       rmax = self.ChamberRadius - self.WallThickness,
+                                       rmax = self.ChamberRadius - self.pvThickness,
                                        dz = self.ChamberLength*0.5)
         tpc_chamber_lv = geom.structure.Volume('volTPCChamber',
-                                               material="HP_Ar",
+                                               material=self.GasType,
                                                shape=tpc_chamber_shape)
         
         # The gas volumes are sensitive detectors
@@ -303,13 +284,14 @@ class GArTPCBuilder(gegede.builder.Builder):
                                                    #rot = main_rot)
         main_lv.placements.append(tpc_chamber_pla.name)
 
+        
         ###########################################
-        ##### Pressure vessel Barrel ######
+        ######## Pressure vessel Barrel ###########
         ###########################################
-        print("Construct PV Barrel")
+        print("-------------------------------------------------")
+        print("Construct pressure vessel - barrel")
 
-        safety = Q("0.1mm")
-        pv_rInner = self.rInnerTPC
+        pv_rInner = self.ChamberRadius
         pvHalfLength = self.ChamberLength/2
         pv_rmin = pv_rInner
         pv_rmax = pv_rmin + self.pvThickness
@@ -323,33 +305,26 @@ class GArTPCBuilder(gegede.builder.Builder):
         # Place it in the main lv
         main_lv.placements.append(pvb_pla.name)
 
-        ###############################
-        ##### ENDCAPS VOLUME GAS ######
-        ###############################
-        # Length
-        #length = self.ChamberLength/2+ self.pvEndCapBulge
-
+        ###########################################
+        ############ GASEOUS ENDCAPS  #############
+        ###########################################
+        print("-------------------------------------------------")
+        print("Construct gaseous endcaps")
         # Position
-        safety = Q("0.1mm")
-        pv_rInner = self.rInnerTPC
+        pv_rInner = self.ChamberRadius
         pv_rmin = sqrt((pv_rInner/Q("1mm"))**2)*Q("1mm")
-        h = self.pvEndCapBulge
+        h = self.EndCapBulge
         x = pv_rmin
         q = ((h/Q("1mm"))**2 + (x/Q("1mm"))**2)
         R = q/(2*h/Q("1mm"))*Q("1mm")
         xpos = self.ChamberLength/2-(R-h)
         print("PV Endcap gas put at xpos", xpos)
 
-        # Place gas into the endcaps
-        print("Construct PV Endcap Gas")
-        # build the pressure vessel endcaps
-        # some euclidean geometry documented in my notebook
-        pv_rInner = self.rInnerTPC
+        pv_rInner = self.ChamberRadius
         pvHalfLength = self.ChamberLength/2
         pv_rmin = pv_rInner
-        #pv_rmax = pv_rmin #+ self.pvThickness
 
-        h = self.pvEndCapBulge
+        h = self.EndCapBulge
         x = pv_rmin
         q = ((h/Q("1mm"))**2 + (x/Q("1mm"))**2)
         R = q/(2*h/Q("1mm"))*Q("1mm")
@@ -358,16 +333,15 @@ class GArTPCBuilder(gegede.builder.Builder):
         print("h, x, q, R, dtheta = ", h, x, q, R, dtheta)
 
         pvec_name =  "Endcap Gas"
-        pvec_shape = geom.shapes.Sphere(pvec_name + " shape", rmin=Q("0cm"), rmax=R-safety, sphi="0deg", dphi="360deg", stheta="0deg", dtheta=dtheta)
+        pvec_shape = geom.shapes.Sphere(pvec_name + " shape", rmin=Q("0cm"), rmax=R-self.SmallGap, sphi="0deg", dphi="360deg", stheta="0deg", dtheta=dtheta)
 
         # build the pressure vessel barrel
         pvb_name = "Gas to subtract"
-        pvb_shape = geom.shapes.Tubs(pvb_name,rmax=self.ChamberRadius-self.WallThickness, dz=self.ChamberLength/2 + abs(xpos) + safety)
+        pvb_shape = geom.shapes.Tubs(pvb_name,rmax=self.ChamberRadius-self.pvThickness, dz=self.ChamberLength/2 + abs(xpos) + self.SmallGap)
         
-        endcaps_shape = geom.shapes.Boolean('Gas endcaps subtract', type='subtraction', first=pvec_shape, second=pvb_shape)
+        endcaps_shape = geom.shapes.Boolean('Gas Endcaps subtract inner barrel', type='subtraction', first=pvec_shape, second=pvb_shape)
         
-        #pvec_vol_2 = geom.structure.Volume("Gas Endcaps vol", shape=pvb_shape, material="Copper")
-        pvec_vol = geom.structure.Volume("Gas Endcaps vol ", shape=endcaps_shape, material="HP_Ar")
+        pvec_vol = geom.structure.Volume("Gas Endcaps vol ", shape=endcaps_shape, material=self.GasType)
         
         # The gas volumes are sensitive detectors
         pvec_vol.params.append(('SensDet',"Gas Endcaps vol"))
@@ -377,86 +351,59 @@ class GArTPCBuilder(gegede.builder.Builder):
             if side == 'R':
                 xpos = -xpos
             # print("xpos = ", xpos)
-            pvec_rot = geom.structure.Rotation("PVEndcap Gas"+side+"_rot", y=yrot)
-            pvec_pos = geom.structure.Position("PVEndcap Gas"+side+"_pos", z=xpos)
-            pvec_pla = geom.structure.Placement("PVEndcap Gas"+side+"_pla", volume=pvec_vol, pos=pvec_pos, rot=pvec_rot)
+            pvec_rot = geom.structure.Rotation("Gas Endcap "+side+"_rot", y=yrot)
+            pvec_pos = geom.structure.Position("Gas Endcap "+side+"_pos", z=xpos)
+            pvec_pla = geom.structure.Placement("Gas Endcap "+side+"_pla", volume=pvec_vol, pos=pvec_pos, rot=pvec_rot)
             main_lv.placements.append(pvec_pla.name)
 
         ###########################################
         ##### ENDCAPS VOLUME Pressure vessel ######
         ###########################################
-        # Length
-        #length = self.ChamberLength/2+ self.pvEndCapBulge + self.pvThickness
-
+        print("-------------------------------------------------")
+        print("Construct pressure vessel endcaps")
         # Position
-        
-        safety = Q("0.1mm")
-        pv_rInner = self.rInnerTPC
+        pv_rInner = self.ChamberRadius
         pv_rmin = sqrt((pv_rInner/Q("1mm"))**2)*Q("1mm")
-        h = self.pvEndCapBulge
+        h = self.EndCapBulge
         x = pv_rmin
         q = ((h/Q("1mm"))**2 + (x/Q("1mm"))**2)
         R = q/(2*h/Q("1mm"))*Q("1mm")
         xpos = self.ChamberLength/2-(R-h)
         print("PV Endcap put at xpos", xpos)
 
-        # Place gas into the endcaps
-        print("Construct PV Endcap")
         # build the pressure vessel endcaps
-        # some euclidean geometry documented in my notebook
-        pv_rInner = self.rInnerTPC
+        pv_rInner = self.ChamberRadius
         pvHalfLength = self.ChamberLength/2
         pv_rmin = pv_rInner
         pv_rmax = pv_rmin + self.pvThickness
         
-        h = self.pvEndCapBulge
+        h = self.EndCapBulge
         x = pv_rmin
         q = ((h/Q("1mm"))**2 + (x/Q("1mm"))**2)
         R = q/(2*h/Q("1mm"))*Q("1mm")
         dtheta = asin( 2*(h/Q("1mm"))*(x/Q("1mm"))/q)
         
-        print("Construct PV Endcap")
         print("h, x, q, R, dtheta = ", h, x, q, R, dtheta)
 
         pvec_name = "PV Endcap"
         pvec_shape = geom.shapes.Sphere(pvec_name, rmin=R, rmax=R + self.pvThickness, sphi="0deg", dphi="360deg", stheta="0deg", dtheta=dtheta)
-        pvec_vol = geom.structure.Volume("vol"+pvec_name, shape=pvec_shape, material=self.pvMaterial)
+        pvec_vol = geom.structure.Volume("vol "+pvec_name, shape=pvec_shape, material=self.pvMaterial)
         
         for side in ["L", "R"]:
             yrot = "0deg" if side == 'L' else "180deg"
             if side == 'R':
                 xpos = -xpos
             # print("xpos = ", xpos)
-            pvec_rot = geom.structure.Rotation("PVEndcap"+side+"_rot", y=yrot)
-            pvec_pos = geom.structure.Position("PVEndcap"+side+"_pos", z=xpos)
-            pvec_pla = geom.structure.Placement("PVEndcap"+side+"_pla", volume=pvec_vol, pos=pvec_pos, rot=pvec_rot)
+            pvec_rot = geom.structure.Rotation("PV Endcap "+side+"_rot", y=yrot)
+            pvec_pos = geom.structure.Position("PV Endcap "+side+"_pos", z=xpos)
+            pvec_pla = geom.structure.Placement("PV Endcap "+side+"_pla", volume=pvec_vol, pos=pvec_pos, rot=pvec_rot)
             main_lv.placements.append(pvec_pla.name)
 
-        # Add in the gas volume
-        
-        tpc_gas_shape = geom.shapes.Tubs('TPCGas',
-                             rmax=self.ChamberRadius-self.WallThickness,
-                             dz=0.5*self.ChamberLength)
+        print("-------------------------------------------------")
+        print("Construct stuff inside the chamber/vessel")
+        print("-------------------------------------------------")
 
-        tpc_gas_lv = geom.structure.Volume('volTPCGas',
-                                           material="Lead",
-                                           shape=tpc_gas_shape) # self.GasType
-
-        # Place gas into the chamber
-        
-        pos = [Q('0m'),Q('0m'),Q('0m')]
-        tpc_gas_pos = geom.structure.Position('TPCGas_pos',
-                                              pos[0],pos[1],pos[2])
-        tpc_gas_pla = geom.structure.Placement('TPCGas_pla',
-                                               volume=tpc_gas_lv,
-                                               pos=tpc_gas_pos)
-        #tpc_chamber_lv.placements.append(tpc_gas_pla.name)
-        
-        # Construct the TPCs
-        if not self.BuildEmpty:
-            self.construct_tpcs(geom, tpc_chamber_lv)
-            #self.construct_tpcs(geom, tpc_gas_lv)
-
+        self.construct_tpcs(geom, tpc_chamber_lv)
 
     def construct_tpcs(self,geom,lv):
         """ Construct the two TPCs along with their
@@ -464,9 +411,8 @@ class GArTPCBuilder(gegede.builder.Builder):
 
         args:
             geom: The geometry:
-            tpc_gas_lv: The vessel gas volume where
-                want to place the TPCs
-
+            tpc_chamber_lv: The vessel gas volume where
+                want to stuff
         """
 
         pos1 = []
@@ -492,7 +438,7 @@ class GArTPCBuilder(gegede.builder.Builder):
             rot3 = [Q('30deg'),Q('0deg'),Q('0deg')]
 
         else:
-            pos0 = [0,0,0] # ring 1
+            pos0 = [0,0,0] # origin
             # x is left and right within the vessel
             # y is up and bottom within the vessel
             # z is towards and away within the vessel
@@ -505,91 +451,109 @@ class GArTPCBuilder(gegede.builder.Builder):
 
         # have to define that the distance in between the places
         # first ring offset 
-        ringOffset = self.RailLength/2 - self.TerminatorOffset - self.t_thickness - Q("43mm") - self.fc_dZring/2
-        print(ringOffset)
-        # 43 mm offset between the terminator and the firs ring
-        self.construct_fieldcagering_toad(geom,"TPC_Drift 0 ",pos0, ringOffset, rot1,lv)
-        self.construct_fieldcagering_toad(geom,"TPC_Drift 1 ",pos0, ringOffset - Q("2.5cm"), rot1,lv)
-        self.construct_fieldcagering_toad(geom,"TPC_Drift 2",pos0, ringOffset - 2*Q("2.5cm"), rot1,lv)
-        self.construct_fieldcagering_toad(geom,"TPC_Drift 3 ",pos0, ringOffset - 3*Q("2.5cm"), rot1,lv)
-        self.construct_fieldcagering_toad(geom,"TPC_Drift 4 ",pos0, ringOffset - 4*Q("2.5cm"),rot1,lv)
-        self.construct_fieldcagering_toad(geom,"TPC_Drift 5 ",pos0, ringOffset - 5*Q("2.5cm"),rot1,lv)
-        self.construct_fieldcagering_toad(geom,"TPC_Drift 6 ",pos0, ringOffset - 6*Q("2.5cm"),rot1,lv)
-        self.construct_fieldcagering_toad(geom,"TPC_Drift 7 ",pos0, ringOffset - 7*Q("2.5cm"),rot1,lv)
+        ringOffset = self.RailLength/2 - self.TerminatorOffset - self.TerminatorThickness - self.fcTerminatorFirstRingOffset - self.fcRingThickness/2
+        print("First ring offset from the center (from the OROC side) = " + str(ringOffset))
+        # Based on 43 mm offset between the terminator and the first ring
 
         self.construct_cathode(geom,"Cathode ",pos0,rot1,lv)
-        
-        self.construct_oroc_main(geom,"OROC main ",pos0,rot2,lv) # pos 9
-        self.construct_oroc_frame(geom,"OROC frame ",pos0,rot2,lv) # pos 9
-
-        self.construct_terminator_holder(geom,"Terminator holder ",pos0,rot1,lv) # pos 10
-        self.construct_terminator_bottom(geom,"Terminator bottom part ",pos0,rot1,lv) # pos 10
-        self.construct_terminator_left(geom,"Terminator left part ",pos0,rot3,lv) # pos 10
-        self.construct_terminator_right(geom,"Terminator right part ",pos0,rot4,lv) # pos 10
-        #self.construct_oroc_back(geom,"OROC back readout ",pos9,rot2,lv) # pos 9
+        for ring in range(0,int(self.fcNRings)):
+            self.construct_fieldcagering(geom,"FC ring number " + str(ring),pos0, ringOffset - ring*self.fcRingSpacing - self.fcRingSpacing , rot1,lv)
+            print("Ring " + str(ring) + " position in z = " + str(ringOffset - ring*self.fcRingSpacing - self.fcRingSpacing))
+    
+        self.construct_terminator_holder(geom,"Terminator holder ",pos0,rot1,lv)
+        self.construct_terminator_bottom(geom,"Terminator bottom ",pos0,rot1,lv)
+        self.construct_terminator_left(geom,"Terminator left ",pos0,rot3,lv) 
+        self.construct_terminator_right(geom,"Terminator right ",pos0,rot4,lv)
+        self.construct_oroc_main(geom,"OROC alu  main ",pos0,rot2,lv) 
+        self.construct_oroc_frame(geom,"OROC alu frame ",pos0,rot2,lv)
 
     def construct_cathode(self, geom, name, pos_vec,rot, lv):
-        # The cathode is 12 + 10.5 mm from the end of the rails 
-        # The end of the rails are in line with the end of the cylindrical part of the vessel)
-        # Length of the vessel is 73.6 cm -> half length is 36.8 cm
-        # Hence the position is: - [(ChamberLength/2) - 12.5 mm - 10.5 mm]
+        # Cathode is 10.5 mm from the end of the rails (on the cathode side)
         # Mesh thicknes is about 25 microns
         # Steel ring is 1 mm thick
 
         # Note we do not model the black delring that is 12.5 mm thick
-        # Note 
-        # from the front end of the rails it is 601 mm to the cathode holder (black delrin)
-        # then the cathode holder is 12.5 mm, then the cathode
-        # then it is another 11. 5 mm to the far end of the rails (edited) 
-        # fact the cathode is attached to a steel ring 1mm width, so it is actually 614.5 mm from one end of the rails
-        # and 10.5 mm from the other)
-        '''Construct cathode mesh ring.'''
-        offset_z = self.RailLength/2 - Q("10.5mm")
+        # which is immediately after the cathode (on the OROC side)
+        # Details:
+        # From the front end of the rails it is 601 mm to the cathode holder (black delrin)
+        # Then the cathode holder is 12.5 mm, then the cathode
+        # Then it is another 11. 5 mm to the far end of the rails (edited) 
+        # Actually the cathode is attached to a steel ring 1mm width, so it is actually 614.5 mm from one end of the rails
+        # And 10.5 mm from the other)
+
+        '''Construct cathode.'''
+        print("Construct cathode")
+
+        offset_z = self.RailLength/2 - Q("10.5mm") - self.CathodeHolderThickness/2
+        print("Cathode position in z " + str(-offset_z))
+        
         tpc_rot = geom.structure.Rotation(name+'_rot',rot[0],rot[1],rot[2])
-        pos = [ x*(self.HalfZ + self.TPCGap) for x in pos_vec]
+        pos = [ x*self.SmallGap for x in pos_vec]
         tpc_pos = geom.structure.Position(name+'_pos',pos[0],pos[1],pos[2] - offset_z)
 
-        
-        c_holder_rInner = self.c_holder_rInner
-        c_holder_rOuter = self.c_holder_rOuter
-        c_holder_thickness = self.c_holder_thickness/2
-        c_holder_material = self.c_holder_material
+        c_holder_rInner = self.CathodeHolderInnerRadius
+        c_holder_rOuter = self.CathodeHolderOuterRadius
+        c_holder_thickness = self.CathodeHolderThickness/2
+        c_holder_material = self.CathodeHolderMaterial
 
-        c_rInner = self.c_rInner
-        c_rOuter = self.c_rOuter
-        c_material = self.c_material
-        c_dZthickness = self.c_thickness/2 #half width as usual
+        c_rInner = self.CathodeInnerRadius
+        c_rOuter = self.CathodeOuterRadius
+        c_material = self.CathodeMaterial
+        c_dZthickness = self.CathodeThickness/2 #half width as usual
 
-        print("Construct cathode mesh holder " + name)
+        print("1) Cathode Mesh Holder ")
         c_holder_shape = geom.shapes.Tubs(name+"cathode holder shape", rmax = c_holder_rOuter,rmin=c_holder_rInner, dz = c_holder_thickness)
         c_holder_vol = geom.structure.Volume(name+'cathode holder vol', shape=c_holder_shape, material=c_holder_material)
         c_holder_pla = geom.structure.Placement(name+'cathode holder place', volume=c_holder_vol, pos=tpc_pos, rot=tpc_rot)
         
         lv.placements.append(c_holder_pla.name)
 
-        print("Construct cathode mesh " + name)
+        print("2) Cathode Mesh ")
         c_shape = geom.shapes.Tubs(name+"cathode shape", rmax = c_rOuter,rmin=c_rInner, dz = c_dZthickness)
         c_vol = geom.structure.Volume(name+'cathode vol', shape=c_shape, material=c_material)
         c_pla = geom.structure.Placement(name+'cathode place', volume=c_vol, pos=tpc_pos, rot=tpc_rot)        
         
         lv.placements.append(c_pla.name)
+
+    def construct_fieldcagering(self,geom,name,pos_vec, offset, rot,lv):
+        '''Construct 1 field cage ring.'''
+        print("Construct Field Cage " + name)
+        
+        # field cage position
+        # field cage rotation
+        tpc_rot = geom.structure.Rotation(name+'_rot',rot[0],rot[1],rot[2])
+        pos = [ x*self.SmallGap for x in pos_vec]
+        tpc_pos = geom.structure.Position(name+'_pos',pos[0],pos[1],pos[2] + offset)
+        
+        fc_rInner = self.fcInnerRadius
+        fc_rOuter = self.fcOuterRadius
+        fc_dZring = self.fcRingThickness
+        fc_material = self.fcMaterial # copper
+
+        fc_shape = geom.shapes.Tubs(name+"field cage shape", rmax = fc_rOuter,rmin=fc_rInner, dz = fc_dZring)
+        fc_vol = geom.structure.Volume(name+'field cage vol', shape=fc_shape, material=fc_material)
+        fc_pla = geom.structure.Placement(name+'field cage placement', volume=fc_vol, pos=tpc_pos, rot=tpc_rot)
+        
+        lv.placements.append(fc_pla.name)
     
     def construct_terminator_holder(self, geom, name, pos_vec,rot, lv):
         '''Construct terminator holder'''
-        offset_z = self.RailLength/2 - self.TerminatorOffset - self.t_thickness/2
-        #self.oroc_dy1_thickness/2 + Q("5mm") # safe gap
+        print("Construct terminator holder")
+
+        offset_z = self.RailLength/2 - self.TerminatorOffset - self.TerminatorThickness/2
+        print("Terminator position in z " + str(offset_z))
+
         tpc_rot = geom.structure.Rotation(name+'_rot',rot[0],rot[1],rot[2])
-        pos = [ x*(self.HalfZ + self.TPCGap) for x in pos_vec]
+        pos = [ x*self.SmallGap for x in pos_vec]
         tpc_pos = geom.structure.Position(name+'_pos',pos[0],pos[1],pos[2]+offset_z)
         # off set readout plane by the thickness of the oroc trapezoid in negative z direction (inside of the vessel)
     
-        t_holder_rInner = self.c_holder_rInner
-        t_holder_rOuter = self.c_holder_rOuter
-        t_holder_thickness = self.c_holder_thickness/2
-        t_holder_material = "PVC"
+        t_holder_rInner = self.TerminatorHolderInnerRadius
+        t_holder_rOuter = self.TerminatorHolderOuterRadius
+        t_holder_thickness = self.TerminatorHolderThickness/2
+        t_holder_material =  self.TerminatorHolderMaterial 
         # made of PVC
 
-        print("Construct terminator holder " + name)
         t_holder_shape = geom.shapes.Tubs(name+"terminator holder shape ", rmax = t_holder_rOuter,rmin=t_holder_rInner, dz = t_holder_thickness)
         t_holder_vol = geom.structure.Volume(name+'terminator holder vol ', shape=t_holder_shape, material=t_holder_material)
         t_holder_pla = geom.structure.Placement(name+'terminator holder place ', volume=t_holder_vol, pos=tpc_pos, rot=tpc_rot)
@@ -598,26 +562,27 @@ class GArTPCBuilder(gegede.builder.Builder):
 
     def construct_terminator_bottom(self, geom, name, pos_vec,rot, lv):
         '''Construct bottom part of the terminator'''
-        offset_z = self.RailLength/2 - self.TerminatorOffset - self.t_thickness/2
-        #self.oroc_dy1_thickness/2
+        print("Construct terminator bottom")
+
+        offset_z = self.RailLength/2 - self.TerminatorOffset - self.TerminatorThickness/2
+
         tpc_rot = geom.structure.Rotation(name+'_rot',rot[0],rot[1],rot[2])
-        pos = [ x*(self.HalfZ + self.TPCGap) for x in pos_vec]
+        pos = [ x*self.SmallGap for x in pos_vec]
         tpc_pos = geom.structure.Position(name+'_pos',pos[0],pos[1],pos[2]+offset_z)
         # off set readout plane by the thickness of the oroc trapezoid in negative z direction (inside of the vessel)
     
-        t_rInner = self.c_rInner
-        t_rOuter = self.c_rOuter
-        t_material = "Steel"
-        t_dZthickness = self.t_thickness/2 #half width as usual
+        t_rInner = self.TerminatorInnerRadius
+        t_rOuter = self.TerminatorOuterRadius
+        t_material = self.TerminatorMaterial 
+        t_dZthickness = self.TerminatorThickness/2 #half width as usual
 
         # block 1
-        oroc_dx1 = self.oroc_dx1_upper *2 # min (top)
-        oroc_dx2 = self.oroc_dx1_upper *2  # still min (top)
-        oroc_dy1 =  self.oroc_dz_height/2.2  # height
-        oroc_dy2 =  self.oroc_dz_height/2.2  # height
-        oroc_dz = self.c_thickness/2 + Q("1cm")
+        oroc_dx1 = self.orocUpper_dx1 *2 # min (top)
+        oroc_dx2 = self.orocUpper_dx1 *2  # still min (top)
+        oroc_dy1 =  self.orocHeight_dz /2.2  # height
+        oroc_dy2 =  self.orocHeight_dz /2.2  # height
+        oroc_dz = self.TerminatorThickness/2 + Q("1cm")
 
-        print("Construct the inner bottom part of the terminator " + name)
         t_shape = geom.shapes.Tubs(name+"terminator shape 1", rmax = t_rOuter,rmin=t_rInner, dz = t_dZthickness, dphi = Q("180deg"), sphi = Q("180deg")) # lower circle
         oroc_shape = geom.shapes.Trapezoid(name + "oroc shape", dx1=oroc_dx1, dx2=oroc_dx2, dy1=oroc_dy1, dy2=oroc_dy2, dz=oroc_dz)
 
@@ -631,27 +596,28 @@ class GArTPCBuilder(gegede.builder.Builder):
 
     def construct_terminator_left(self, geom, name, pos_vec,rot, lv):
         '''Construct left part of the terminator'''
-        offset_z = self.RailLength/2 - self.TerminatorOffset - self.t_thickness/2
-        #self.oroc_dy1_thickness/2
+        print("Construct terminator left")
+
+        offset_z = self.RailLength/2 - self.TerminatorOffset - self.TerminatorThickness/2
+
         tpc_rot = geom.structure.Rotation(name+'_rot',rot[0],rot[1],rot[2])
-        pos = [ x*(self.HalfZ + self.TPCGap) for x in pos_vec]
+        pos = [ x*self.SmallGap for x in pos_vec]
         tpc_pos = geom.structure.Position(name+'_pos',pos[0],pos[1],pos[2]+offset_z)
         # off set readout plane by the thickness of the oroc trapezoid in negative z direction (inside of the vessel)
     
-        t_rInner = self.c_rInner
-        t_rOuter = self.c_rOuter
-        t_material = "Steel"
-        t_dZthickness = self.t_thickness/2 #half width as usual
+        t_rInner = self.TerminatorInnerRadius
+        t_rOuter = self.TerminatorOuterRadius
+        t_material =  self.TerminatorMaterial 
+        t_dZthickness = self.TerminatorThickness/2 #half width as usual
 
         # block 1
-        oroc_dx1 = self.oroc_dx1_upper/1.35 # min (top)
-        oroc_dx2 =  self.oroc_dx1_upper/1.35 # still min (top)
+        oroc_dx1 = self.orocUpper_dx1/1.35 # min (top)
+        oroc_dx2 =  self.orocUpper_dx1/1.35 # still min (top)
         # change x to ensure the proper area is cut out
-        oroc_dy1 =  self.oroc_dz_height/2  # height
-        oroc_dy2 =  self.oroc_dz_height/2  # height
-        oroc_dz = self.c_thickness/2 + Q("1cm")
+        oroc_dy1 =  self.orocHeight_dz/2  # height
+        oroc_dy2 =  self.orocHeight_dz/2  # height
+        oroc_dz = self.TerminatorThickness/2 + Q("1cm")
 
-        print("Construct the inner left part of the terminator " + name)
         t_shape = geom.shapes.Tubs(name+"terminator shape 2", rmax = t_rOuter,rmin=t_rInner, dz = t_dZthickness, dphi = Q("180deg"), sphi = Q("270deg")) # right circle
         oroc_shape = geom.shapes.Trapezoid(name + "oroc shape", dx1=oroc_dx1, dx2=oroc_dx2, dy1=oroc_dy1, dy2=oroc_dy2, dz=oroc_dz)
 
@@ -665,27 +631,28 @@ class GArTPCBuilder(gegede.builder.Builder):
 
     def construct_terminator_right(self, geom, name, pos_vec,rot, lv):
         '''Construct right part of the terminator'''
-        offset_z = self.RailLength/2 - self.TerminatorOffset - self.t_thickness/2
-        #self.oroc_dy1_thickness/2
+        print("Construct terminator right")
+
+        offset_z = self.RailLength/2 - self.TerminatorOffset - self.TerminatorThickness/2
+        
         tpc_rot = geom.structure.Rotation(name+'_rot',rot[0],rot[1],rot[2])
-        pos = [ x*(self.HalfZ + self.TPCGap) for x in pos_vec]
+        pos = [ x*self.SmallGap for x in pos_vec]
         tpc_pos = geom.structure.Position(name+'_pos',pos[0],pos[1],pos[2]+offset_z)
         # off set readout plane by the thickness of the oroc trapezoid in negative z direction (inside of the vessel)
     
-        t_rInner = self.c_rInner
-        t_rOuter = self.c_rOuter
-        t_material = "Steel"
-        t_dZthickness = self.t_thickness/2 #half width as usual
+        t_rInner = self.TerminatorInnerRadius
+        t_rOuter = self.TerminatorOuterRadius
+        t_material =  self.TerminatorMaterial 
+        t_dZthickness = self.TerminatorThickness/2 #half width as usual
 
         # block 1
-        oroc_dx1 = self.oroc_dx1_upper/1.35 # min (top)
-        oroc_dx2 =  self.oroc_dx1_upper/1.35 # still min (top)
+        oroc_dx1 = self.orocUpper_dx1/1.35 # min (top)
+        oroc_dx2 =  self.orocUpper_dx1/1.35 # still min (top)
         # change x to ensure the proper area is cut out
-        oroc_dy1 =  self.oroc_dz_height/2  # height
-        oroc_dy2 =  self.oroc_dz_height/2  # height
-        oroc_dz = self.c_thickness/2 + Q("1cm")
+        oroc_dy1 =  self.orocHeight_dz/2  # height
+        oroc_dy2 =  self.orocHeight_dz/2  # height
+        oroc_dz = self.TerminatorThickness/2 + Q("1cm")
 
-        print("Construct the inner right part of the terminator " + name)
         t_shape = geom.shapes.Tubs(name+"terminator shape 3", rmax = t_rOuter,rmin=t_rInner, dz = t_dZthickness, dphi = Q("180deg"), sphi = Q("90deg")) # left circle 
         oroc_shape = geom.shapes.Trapezoid(name + "oroc shape", dx1=oroc_dx1, dx2=oroc_dx2, dy1=oroc_dy1, dy2=oroc_dy2, dz=oroc_dz)
 
@@ -699,25 +666,27 @@ class GArTPCBuilder(gegede.builder.Builder):
 
 
     def construct_oroc_main(self, geom, name, pos_vec,rot, lv):
+        '''Construct oroc main trapezoid'''
+        print("Construct OROC main alu body")
         # top of OROC and vessel 76 mm
         # bottom of oroc and vessel 188 mm
-        offset_y = Q("56mm") # calculated
-        offset_z = self.RailLength/2 - self.TerminatorOffset + self.oroc_dy1_thickness/2
+        offset_y = self.orocOffset_y # calculated
+        offset_z = self.RailLength/2 - self.TerminatorOffset + self.orocThickness_dy1/2
+        print("OROC main position in y " + str(offset_y))
+        print("OROC main position in z " + str(offset_z))
 
-        '''Construct oroc main trapezoid'''
         tpc_rot = geom.structure.Rotation(name+'_rot',rot[0],rot[1],rot[2])
-        pos = [ x*(self.HalfZ + self.TPCGap) for x in pos_vec]
+        pos = [ x*self.SmallGap for x in pos_vec]
         #pos = [ x*Q("3.5cm") for x in pos_vec]
         tpc_pos = geom.structure.Position(name+'_pos',pos[0],pos[1] + offset_y ,pos[2] + offset_z)
 
-        oroc_dx1 = self.oroc_dx1_upper/2 # min (top)
-        oroc_dx2 = self.oroc_dx2_lower/2 # max (bottom)
-        oroc_dy1 = self.oroc_dy1_thickness/2 # thickness
-        oroc_dy2 = self.oroc_dy2_thickness/2 # thickness
-        oroc_dz = self.oroc_dz_height/2 # height
-        oroc_material = self.oroc_material
+        oroc_dx1 = self.orocUpper_dx1/2 # min (top)
+        oroc_dx2 = self.orocLower_dx2/2 # max (bottom)
+        oroc_dy1 = self.orocThickness_dy1/2 # thickness
+        oroc_dy2 = self.orocThickness_dy2/2 # thickness
+        oroc_dz = self.orocHeight_dz /2 # height
+        oroc_material = self.orocMaterial
         
-        print("Construct the OROC main " + name)
         oroc_shape = geom.shapes.Trapezoid(name + "OROC main shape ", dx1=oroc_dx1, dx2=oroc_dx2, dy1=oroc_dy1, dy2=oroc_dy2, dz=oroc_dz)
         oroc_vol = geom.structure.Volume(name + "OROC main vol ", shape=oroc_shape, material=oroc_material)
         oroc_pla = geom.structure.Placement(name+'OROC main place ', volume=oroc_vol, pos=tpc_pos, rot=tpc_rot)
@@ -725,46 +694,50 @@ class GArTPCBuilder(gegede.builder.Builder):
         lv.placements.append(oroc_pla.name)
 
     def construct_oroc_frame(self, geom, name, pos_vec,rot, lv):
+        '''Construct oroc frame alu trapezoid'''
+        print("Construct OROC frame alu body")
         # top of OROC and vessel 76 mm
         # bottom of oroc and vessel 188 mm
-        offset_y = Q("77.5mm") # calculated
-        offset_z = self.RailLength/2 - self.TerminatorOffset + self.oroc_dy1_thickness + Q("62mm")/2
-        print(offset_z)
 
-        '''Construct oroc frame trapezoid'''
+        offset_y = self.orocFrameOffset_y # calculated
+        offset_z = self.RailLength/2 - self.TerminatorOffset + self.orocThickness_dy1 + self.orocFrameThickness_dy1/2
+        print("OROC frame position in y " + str(offset_y))
+        print("OROC frame position in z " + str(offset_z))
+
         tpc_rot = geom.structure.Rotation(name+'_rot',rot[0],rot[1],rot[2])
-        pos = [ x*(self.HalfZ + self.TPCGap) for x in pos_vec]
+        pos = [ x*self.SmallGap for x in pos_vec]
         #pos = [ x*Q("3.5cm") for x in pos_vec]
         tpc_pos = geom.structure.Position(name+'_pos',pos[0],pos[1] + offset_y ,pos[2] + offset_z)
 
-        oroc_dx1 = self.oroc_dx1_upper/2 - Q("16.5mm") # min (top)
-        oroc_dx2 = self.oroc_dx2_lower/2 - Q("16.5mm") # max (bottom)
-        oroc_dy1 = Q("62mm")/2 # thickness
-        oroc_dy2 = Q("62mm")/2# thickness
-        oroc_dz = Q("1027mm")/2 # height
-        oroc_material = self.oroc_material
+        # Trapezoid which is by 16.5mm smaller than main
+        # 16.5 from technical drawings
+        oroc_dx1 = self.orocUpper_dx1/2 - Q("16.5mm") # min (top)
+        oroc_dx2 = self.orocLower_dx2/2 - Q("16.5mm") # max (bottom)
+        oroc_dy1 = self.orocFrameThickness_dy1/2 # thickness
+        oroc_dy2 = self.orocFrameThickness_dy2/2# thickness
+        oroc_dz = self.orocFrameHeight_dz/2 # height
+        oroc_material = self.orocMaterial
 
-
-        oroc_dx1_2 = self.oroc_dx1_upper/2 - Q("16.5mm") - Q("20mm") # min (top)
-        oroc_dx2_2 = self.oroc_dx2_lower/2 - Q("16.5mm") - Q("20mm") # max (bottom)
-        oroc_dy1_2 = Q("62mm")/2 + self.SmallGap # thickness
-        oroc_dy2_2 = Q("62mm")/2 + self.SmallGap # thickness
-        oroc_dz_2 = Q("1027mm")/2 - Q("20mm") # height
+        # Measurements to subtract the inner side and leave just the fame
+        # 20 mm thicknes of the frame from technical drawings
+        oroc_dx1_2 = self.orocUpper_dx1/2 - Q("16.5mm") - Q("20mm") # min (top)
+        oroc_dx2_2 = self.orocLower_dx2/2 - Q("16.5mm") - Q("20mm") # max (bottom)
+        oroc_dy1_2 = self.orocFrameThickness_dy1/2 + self.SmallGap # thickness
+        oroc_dy2_2 = self.orocFrameThickness_dy2/2 + self.SmallGap # thickness
+        oroc_dz_2 = self.orocFrameHeight_dz/2 - Q("20mm") # height
 
         # vertical division
-        ver_div_dx1 =  Q("16mm")/2 # min (top)
-        ver_div_dx2 =  Q("16mm")/2# max (bottom)
-        # what is the thicknes of the vertical division? it is 16 mm
+        ver_div_dx1 =  self.orocFrameVerticalDivisionThickness_dx1/2 # min (top)
+        ver_div_dx2 =  self.orocFrameVerticalDivisionThickness_dx2/2# max (bottom)
+        # thickness of the vertical division 16 mm
         # dimension/2 
-        ver_div_dy1 = Q("42.5mm")/2# thickness
-        ver_div_dy2 = Q("42.5mm")/2 # thickness
+        ver_div_dy1 = self.orocFrameVerticalDivisionDepth_dy1/2# thickness
+        ver_div_dy2 = self.orocFrameVerticalDivisionDepth_dy2/2 # thickness
         ver_div_dz = oroc_dz_2 # height
 
-        # central divisions
-        # central horizontal and vertical divisions
+        # Central vertical division
         vertical_division = geom.shapes.Trapezoid(name + "vertical division ", dx1=ver_div_dx1, dx2=ver_div_dx2, dy1=ver_div_dy1, dy2= ver_div_dy2, dz= ver_div_dz)
         
-        print("Construct the OROC frame " + name)
         oroc_shape_outer = geom.shapes.Trapezoid(name + "OROC frame shape outer ", dx1=oroc_dx1, dx2=oroc_dx2, dy1=oroc_dy1, dy2=oroc_dy2, dz=oroc_dz)
         oroc_shape_inner = geom.shapes.Trapezoid(name + "OROC frame shape inner ", dx1=oroc_dx1_2, dx2=oroc_dx2_2, dy1=oroc_dy1_2, dy2=oroc_dy2_2, dz=oroc_dz_2)
         oroc_shape_1 = geom.shapes.Boolean(name + 'OROC frame shape 1', type='subtraction', first=oroc_shape_outer, second=oroc_shape_inner)
@@ -775,7 +748,8 @@ class GArTPCBuilder(gegede.builder.Builder):
         lv.placements.append(oroc_pla.name)
     
 
-    
+    '''
+    # NOT USED
     def construct_oroc_back(self,geom,name,pos_vec,rot,lv):
         # top of OROC and vessel 76 mm
         # bottom of oroc and vessel 188 mm
@@ -789,7 +763,7 @@ class GArTPCBuilder(gegede.builder.Builder):
         #self.oroc_dy1_thickness/2 # safe gap
         rot = geom.structure.Rotation(name+'_rot',rot[0],rot[1],rot[2])
         #pos = [ x*Q("3.5cm") for x in pos_vec]
-        pos = [ x*(self.HalfZ + self.TPCGap) for x in pos_vec]
+        pos = [ x*self.SmallGap for x in pos_vec]
         # central
         pos0 = geom.structure.Position(name+'_pos0',pos[0],pos[1] + Q("56mm") ,pos[2] + offset)
         # horizontal division upper
@@ -929,155 +903,4 @@ class GArTPCBuilder(gegede.builder.Builder):
         hor_div_4_vol = geom.structure.Volume(name + "Hor div 4 volume ", shape=hor_div_4, material=oroc_material)
         hor_div_4_pla = geom.structure.Placement(name+"Hor div 4 place ", volume=hor_div_4_vol, pos=pos6, rot=rot)
         lv.placements.append(hor_div_4_pla.name)
-
-
-    def construct_fieldcagering_toad(self,geom,name,pos_vec, offset, rot,lv):
-        '''Construct 1 field cage ring.'''
-        # field cage position
-        # field cage rotation
-
-        tpc_rot = geom.structure.Rotation(name+'_rot',rot[0],rot[1],rot[2])
-        pos = [ x*(self.HalfZ + self.TPCGap) for x in pos_vec]
-        tpc_pos = geom.structure.Position(name+'_pos',pos[0],pos[1],pos[2] + offset)
-        
-        fc_rInner = self.rInnerFC #+ self.SmallGap # 55 cm
-        fc_rOuter = self.rOuterFC #+ self.SmallGap # 56.1cm
-        #fc_nRings = self.fc_nRings # 8 rings
-        fc_RingSpacing = self.fc_RingSpacing
-        fc_dZring = self.fc_dZring
-        fc_material = self.fc_material # copper
-        print("Construct Field Cage " + name)
-    
-        fc_shape = geom.shapes.Tubs(name+"field cage shape", rmax = fc_rOuter,rmin=fc_rInner, dz = self.fc_dZring)
-        
-        fc_vol = geom.structure.Volume(name+'field cage vol', shape=fc_shape, material=fc_material)
-        fc_pla = geom.structure.Placement(name+'field cage placement', volume=fc_vol, pos=tpc_pos, rot=tpc_rot)
-        
-        lv.placements.append(fc_pla.name)
-    
     '''
-    def construct_tpc(self,geom,name,pos_vec,rot,lv):
-        """ Construct a TPC. Each TPC includes the gas volume,
-            a field cage, and a readout plane.
-
-        Args:
-
-            geom: The geometry.
-            name: The name of the TPC. Should be unique.
-            pos_vec: A unit vector giving the direction about
-                     which the TPC should be translated.
-                     Array-like.
-            rot: A rotation vector. Array-like
-            lv: The parent volume.
-
-        """
-        # First, set up the main rotation and position to be used for the TPC
-        tpc_rot = geom.structure.Rotation(name+'_rot',rot[0],rot[1],rot[2])
-        pos = [ x*(self.HalfZ + self.TPCGap) for x in pos_vec]
-        tpc_pos = geom.structure.Position(name+'_pos',pos[0],pos[1],pos[2])
-        
-        # Create the shape and logical volume
-        tpc_shape = geom.shapes.Tubs(name+'_shape',
-                                    rmax = self.Radius,
-                                    dz = self.HalfZ)
-
-        tpc_lv = geom.structure.Volume(name,material = self.GasType,
-                                       shape=tpc_shape)
-
-        # Create a placement
-        tpc_pla = geom.structure.Placement(name+'_pla',
-                                           volume=tpc_lv,
-                                           pos=tpc_pos,
-                                           rot=tpc_rot
-                                           )
-
-        # The gas volumes are sensitive detectors
-        tpc_lv.params.append(('SensDet',name))
-
-        # Add the step limit size for the TPC sensitive volume
-        tpc_lv.params.append(('StepLimit', self.TPCStepLimit))
-
-        # Place in the main gas volume
-        #lv.placements.append(tpc_pla.name)
-        
-
-        #self.construct_readout_plane(geom,name,pos_vec,tpc_rot,lv)
-        #self.construct_fieldcage(geom,name,tpc_pos,tpc_rot,lv)
-        self.construct_fieldcagering_toad(geom,name,tpc_pos,tpc_rot,lv)
-    '''
-    '''
-    def construct_readout_plane(self,geom,name,pos_vec,rot,lv):
-        """ Construct a readout plane.
-
-        This creates a PCB volume which holds the readout pads and
-        a support structure (modeled just as a box in this simplified
-        geometry). Wires, readout pad electrodes, and support structures
-        such as posts to hold wires or edges of readout regions are not
-        modeled. Based on ALICE TPC specs.
-
-        Args:
-            geom: The geometry.
-            name: The name of the TPC.
-            pos_vec: A unit vector pointing in the direction which this
-                     should be moved from the center. Array-like.
-            tpc_rot: The rotation for this TPC. A Rotation object.
-            lv: The parent volume.
-
-        """
-        tpc_rot = geom.structure.Rotation(name+'_rot',rot[0],rot[1],rot[2])
-        pos = [ x*(self.HalfZ + self.TPCGap) for x in pos_vec]
-        tpc_pos = geom.structure.Position(name+'_pos',pos[0],pos[1],pos[2])
-
-        
-        padpos = [x*(self.TPCGap+2*self.HalfZ+self.PadOffset
-                  +self.PadThickness/2) for x in pos_vec]
-        pad_pos = geom.structure.Position(name+'pad_pos',
-                                          padpos[0],
-                                          padpos[1],
-                                          padpos[2])
-
-        if self.TPCisCyl is False:
-            pad_shape = geom.shapes.Box(name+'pad_shape',
-                                        self.HalfX,
-                                        self.HalfY,
-                                        self.PadThickness/2)
-
-        else:
-            pad_shape = geom.shapes.Tubs(name+'pad_shape',
-                                         rmax = self.Radius,
-                                         dz = self.PadThickness/2)
-
-        pad_lv = geom.structure.Volume(name+'pad_vol',
-                                       material=self.PadMaterial,
-                                       shape=pad_shape)
-        pad_pla = geom.structure.Placement(name+'pad_pla',volume=pad_lv,
-                                           pos=pad_pos,
-                                           rot=tpc_rot)
-
-        lv.placements.append(pad_pla.name)
-
-
-
-        # Pad support frame
-#        padframepos = [padpos[x] + pos_vec[x]*(self.SmallGap
-#                       +self.PadFrameThickness/2) for x in range(3)]
-#
-#        padframe_pos = geom.structure.Position(name+'padframe_pos',
-#                                               padpos[0],
-#                                               padpos[1],
-#                                               padpos[2])
-#
-#        padframe_shape = geom.shapes.Box(name+'padframe_shape',
-#                                         self.HalfX,
-#                                         self.HalfY,
-#                                         self.PadFrameThickness/2)
-#        padframe_lv = geom.structure.Volume(name+'padframe_vol',
-#                                            material=self.PadFrameMaterial,
-#                                            shape=padframe_shape)
-#        padframe_pla = geom.structure.Placement(name+'padframe_pla',
-#                                                volume=padframe_lv,
-#                                                pos=padframe_pos,
-#                                                rot=tpc_rot)
-#
-#        lv.placements.append(padframe_pla.name)
-        '''
