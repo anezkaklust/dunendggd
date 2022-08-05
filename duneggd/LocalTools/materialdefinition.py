@@ -27,6 +27,9 @@ def define_materials( g ):
     w = g.matter.Element("tungsten",    "W", 74, "183.84*g/mole")
     au = g.matter.Element("gold",       "Au", 79, "196.966*g/mole")
 
+    # for TOAD to define PVC
+    cl = g.matter.Element("chlorine", "Cl", 17, "35.453*g/mole")
+
 #    cu = g.matter.Element("copper",     "Cu", 29, "63.546*g/mole")
     cu63=g.matter.Isotope("copper63", 29, 63, "62.93*g/mole")
     cu63=g.matter.Isotope("copper65", 29, 65, "64.93*g/mole")
@@ -650,3 +653,14 @@ def define_materials( g ):
 
     # SiPM plastic spacer
     # Using PVT
+
+    # PVC - terminator ring for toad
+    # https://en.wikipedia.org/wiki/Polyvinyl_chloride 
+    # https://www.bpf.co.uk/plastipedia/polymers/PVC.aspx
+    # Note 1cc == cm3
+    pvc = g.matter.Molecule("PVC", density="1.38*g/cc",
+                            elements = (
+                                    ("carbon",2),
+                                    ("hydrogen",3),
+                                    ("chlorine", 1)
+                            ))
