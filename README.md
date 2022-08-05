@@ -1,50 +1,51 @@
-# dunendggd_toad - DUNE Near Detector Geometries in GeGeDe for The Teststand of an Overpressure Argon Detector
+# DUNE Near Detector Geometries in GeGeDe for TOAD
 
-This is a repository for developing any DUNE (Near Detector) geometries with [[https://github.com/brettviren/gegede][gegede]]. 
+This is a repository for developing any [DUNE (Near Detector) geometries](https://github.com/DUNE/dunendggd) with [gegede](https://github.com/brettviren/gegede). 
 
-Specifically, this fork of the repository is focused on creating a geoemtry for The Teststand of an Overpressure Argon Detector (TOAD).
+Specifically, this fork of the repository is focused on creating a geometry for The Teststand of an Overpressure Argon Detector (TOAD).
 
-* Getting Started
+## Getting Started
 
-See the [[https://github.com/brettviren/gegede/blob/master/doc/install.org][gegede installation page]] for the prerequisites. Similarly to [[https://github.com/DUNE/duneggd][duneggd]], install virtualenv:
+See the [gegede installation page](https://github.com/brettviren/gegede/blob/master/doc/install.org) for the prerequisites. Similarly to 
+[duneggd](https://github.com/DUNE/duneggd), install `virtualenv`:
 
-#+BEGIN_EXAMPLE
-  $ wget https://pypi.python.org/packages/source/v/virtualenv/virtualenv-1.11.tar.gz
-  $ tar -xf virtualenv-1.11.tar.gz
-  $ python virtualenv-1.11/virtualenv.py dunendggd_toad
-#+END_EXAMPLE
+```bash
+wget https://pypi.python.org/packages/source/v/virtualenv/virtualenv-1.11.tar.gz
+tar -xf virtualenv-1.11.tar.gz
+python virtualenv-1.11/virtualenv.py dunendggd_toad
+```
 
-And clone this repository
-#+BEGIN_EXAMPLE
-  $ git clone https://github.com/anezkaklust/dunendggd_toad
-#+END_EXAMPLE
+And clone this repository:
+```bash
+git clone https://github.com/anezkaklust/dunendggd_toad
+```
 
-# Setup
+## Setup
 
 Each time you login on your machine, you need to activate your virtual environment, setup `duneggd_toad`, and set your python path:
 
-#+BEGIN_EXAMPLE
-  $ source dunendggd_toad/bin/activate
-  $ cd dunendggd_tad/
-  $ python setup.py develop --user 
-  $ export PATH=`pwd`/dunendggd_toad/bin:${PATH}
-#+END_EXAMPLE
+```bash
+source dunendggd_toad/bin/activate
+cd dunendggd_toad/
+python setup.py develop --user 
+export PATH=`pwd`/dunendggd_toad/bin:${PATH}
+```
 
 
-# TOAD Geometry
+## TOAD Geometry
 To create `.gdml` file of TOAD, run 
 
 ```bash
-gegede-cli ../duneggd_toad/Config/TOAD_Concept.cfg  -o toad_concept.gdml
+gegede-cli duneggd_toad/Config/TOAD_Concept.cfg  -o toad_concept.gdml
 ```
 
-# Quick Visualization
-To do a quick check or your geometry file you can use ROOT:
+## Visualization
+To visualize your geometry file you can use ROOT:
 ```bash
 root -l 'geoDisplay.C("toad_concept.gdml",5)''
 ```
 
-# Contact
+## Contact
 * **TOAD geometry:**
    * Anežka Klustová `a.klustova20@imperial.ac.uk`
 * **dunendggd:**
