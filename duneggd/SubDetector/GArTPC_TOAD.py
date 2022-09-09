@@ -16,6 +16,7 @@ Gas region (cylindrical volume + endcaps) is an active volume.
 TO DO:
 
 - Offset of the terminator from the OROC?
+- Beam window
 - Make metal clamps?
 - Include finer structure of the OROC - wedges?
 
@@ -97,6 +98,20 @@ class GArTPCBuilder(gegede.builder.Builder):
         if 'pvMaterial' in list(kwargs.keys()):
             self.pvMaterial= kwargs['pvMaterial']
 
+        # Offsets in z
+        # Offset from the end of the rail on the OROC side
+        self.TerminatorOffset = Q("284mm")
+        if "TerminatorOffset" in list(kwargs.keys()):
+            self.TerminatorOffset = kwargs['TerminatorOffset']
+        # Distance between the terminator and the OROC
+        self.TerminatorOROCoffset = Q("10mm")
+        if "TerminatorOROCoffset" in list(kwargs.keys()):
+           self.TerminatorOROCoffset = kwargs['TerminatorOROCoffset']
+        # Distance between the terminator and the first ring of the field cage
+        self.fcTerminatorFirstRingOffset = Q("43mm")
+        if "fcTerminatorFirstRingOffset" in list(kwargs.keys()):
+            self.cTerminatorFirstRingOffset = kwargs['fcTerminatorFirstRingOffset']
+
         # Field Cage (Rings)
         self.fcInnerRadius = Q("55.5cm")
         if "fcInnerRadius" in list(kwargs.keys()):
@@ -116,11 +131,8 @@ class GArTPCBuilder(gegede.builder.Builder):
         self.fcRingThickness =  Q("1cm")
         if "fcRingThickness" in list(kwargs.keys()):
             self.fcRingThickness = kwargs['fcRingThickness']
-        self.fcTerminatorFirstRingOffset = Q("43mm")
-        if "fcTerminatorFirstRingOffset" in list(kwargs.keys()):
-            self.cTerminatorFirstRingOffset = kwargs['fcTerminatorFirstRingOffset']
 
-        # OROC trapezoid
+        # OROC Main trapezoid
         # x, y, z correpond to x, y, z orientation of the bounding volume
         # Upper, Lower, Thickness, Height correspond to the actual orientation after placing
         # it in the chamber (after rotation about 270 deg around x)
@@ -143,7 +155,7 @@ class GArTPCBuilder(gegede.builder.Builder):
         if "orocHeight_dz" in list(kwargs.keys()):
             self.orocHeight_dz = kwargs['orocHeight_dz']
         self.orocOffset_y = Q("56mm") # calculated
-        # PUT HOW CALCULATED
+        # OROC Main offset in y (calculated)
         if "orocOffset_y" in list(kwargs.keys()):
             self.orocOffset_y = kwargs['orocOffset_y']
 
@@ -169,7 +181,7 @@ class GArTPCBuilder(gegede.builder.Builder):
         if "orocFrameVerticalDivisionDepth_dy2" in list(kwargs.keys()):
            self.orocFrameVerticalDivisionDepth_dy2 = kwargs['orocFrameVerticalDivisionDepth_dy2']
         self.orocFrameOffset_y = Q("77.5mm")  # calculated
-        # PUT HOW CALCULATED
+        # OROC Frame offset in y (calculated)
         if "orocFrameOffset_y " in list(kwargs.keys()):
             self.orocFrameOffset_y  = kwargs['orocFrameOffset_y ']
 
@@ -192,7 +204,7 @@ class GArTPCBuilder(gegede.builder.Builder):
         self.CathodeHolderMaterial = "Steel"
         if "CathodeHolderMaterial" in list(kwargs.keys()):
             self.CathodeHolderMaterial = kwargs['CathodeHolderMaterial']
-        self.CathodeHolderThickness = Q("1mm") #steel ring is 1mm wide
+        self.CathodeHolderThickness = Q("3mm") #steel ring is 3mm wide
         if "CathodeHolderThickness" in list(kwargs.keys()):
             self.CathodeHolderThickness  = kwargs['CathodeHolderThickness']
         self.CathodeHolderInnerRadius = Q("56cm") # inner diameter is 112cm
@@ -204,7 +216,6 @@ class GArTPCBuilder(gegede.builder.Builder):
 
         # Terminator 
         # encloses the drif region on the OROC side
-        self.TerminatorOffset = Q("284mm") # offset from the end of the rail on the OROC side
         self.TerminatorMaterial = "Steel"
         if "TerminatorMaterial" in list(kwargs.keys()):
             self.TerminatorMaterial = kwargs['TerminatorMaterial']
@@ -456,9 +467,12 @@ class GArTPCBuilder(gegede.builder.Builder):
         # Based on 43 mm offset between the terminator and the first ring
 
         self.construct_cathode(geom,"Cathode ",pos0,rot1,lv)
-        for ring in range(0,int(self.fcNRings)):
-            self.construct_fieldcagering(geom,"FC ring number " + str(ring),pos0, ringOffset - ring*self.fcRingSpacing - self.fcRingSpacing , rot1,lv)
-            print("Ring " + str(ring) + " position in z = " + str(ringOffset - ring*self.fcRingSpacing - self.fcRingSpacing))
+        self.construct_fieldcagering(geom,"FC ring number " + str(0),pos0, ringOffset, rot1,lv)
+        print("Ring " + str(0) + " position in z = " + str(ringOffset))
+        
+        for ring in range(1,int(self.fcNRings)):
+            self.construct_fieldcagering(geom,"FC ring number " + str(ring),pos0, ringOffset - ring*self.fcRingSpacing, rot1,lv)
+            print("Ring " + str(ring) + " position in z = " + str(ringOffset - ring*self.fcRingSpacing))
     
         self.construct_terminator_holder(geom,"Terminator holder ",pos0,rot1,lv)
         self.construct_terminator_bottom(geom,"Terminator bottom ",pos0,rot1,lv)
@@ -484,7 +498,7 @@ class GArTPCBuilder(gegede.builder.Builder):
         '''Construct cathode.'''
         print("Construct cathode")
 
-        offset_z = self.RailLength/2 - Q("10.5mm") - self.CathodeHolderThickness/2
+        offset_z = self.RailLength/2 - Q("10.5mm") - self.CathodeThickness/2
         print("Cathode position in z " + str(-offset_z))
         
         tpc_rot = geom.structure.Rotation(name+'_rot',rot[0],rot[1],rot[2])
@@ -671,7 +685,7 @@ class GArTPCBuilder(gegede.builder.Builder):
         # top of OROC and vessel 76 mm
         # bottom of oroc and vessel 188 mm
         offset_y = self.orocOffset_y # calculated
-        offset_z = self.RailLength/2 - self.TerminatorOffset + self.orocThickness_dy1/2
+        offset_z = self.RailLength/2 - self.TerminatorOffset + self.TerminatorOROCoffset + self.orocThickness_dy1/2
         print("OROC main position in y " + str(offset_y))
         print("OROC main position in z " + str(offset_z))
 
@@ -700,7 +714,7 @@ class GArTPCBuilder(gegede.builder.Builder):
         # bottom of oroc and vessel 188 mm
 
         offset_y = self.orocFrameOffset_y # calculated
-        offset_z = self.RailLength/2 - self.TerminatorOffset + self.orocThickness_dy1 + self.orocFrameThickness_dy1/2
+        offset_z = self.RailLength/2 - self.TerminatorOffset + self.TerminatorOROCoffset + self.orocThickness_dy1 + self.orocFrameThickness_dy1/2
         print("OROC frame position in y " + str(offset_y))
         print("OROC frame position in z " + str(offset_z))
 

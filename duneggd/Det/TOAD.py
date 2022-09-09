@@ -35,7 +35,7 @@ class TOAD_Builder(gegede.builder.Builder):
 
         print("Dimension of the top level volume in along the beam ", dx_main*2, " dimension in height ", dy_main*2, " and dimension perp to the beam ", dz_main*2)
 
-        main_shape = geom.shapes.Box('TOAD', dx=dx_main, dy=dy_main, dz=dz_main)
+        main_shape = geom.shapes.Box('MPD', dx=dx_main, dy=dy_main, dz=dz_main )
         main_lv = geom.structure.Volume('vol'+main_shape.name, material='Air', shape=main_shape)
 
         self.add_volume(main_lv)
@@ -70,6 +70,8 @@ class TOAD_Builder(gegede.builder.Builder):
         tpc_vol = tpc_builder.get_volume()
         print(tpc_vol)
 
-        tpc_pla = geom.structure.Placement("GArTPC"+"_pla", volume=tpc_vol)
+        rot = geom.structure.Rotation("Rotation (x<->z)", y="90deg")
+
+        tpc_pla = geom.structure.Placement("GArTPC"+"_pla", volume=tpc_vol, rot = rot )
         # Place it in the main lv
         main_lv.placements.append(tpc_pla.name)
