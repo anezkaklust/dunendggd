@@ -276,7 +276,7 @@ class GArTPCBuilder(gegede.builder.Builder):
         print("-------------------------------------------------")
         print("Construct gaseous chamber - barrel")
         tpc_chamber_shape = geom.shapes.Tubs('TPCChamber',
-                                       rmax = self.ChamberRadius - self.pvThickness,
+                                       rmax = self.ChamberRadius,
                                        dz = self.ChamberLength*0.5)
         tpc_chamber_lv = geom.structure.Volume('volTPCChamber',
                                                material=self.GasType,
@@ -308,7 +308,7 @@ class GArTPCBuilder(gegede.builder.Builder):
         pv_rmax = pv_rmin + self.pvThickness
 
         # build the pressure vessel barrel
-        pvb_name = "PV Barrel"
+        pvb_name = "PV_Barrel"
         pvb_shape = geom.shapes.Tubs(pvb_name, rmin=pv_rmin, rmax=pv_rmax, dz=pvHalfLength, sphi="0deg", dphi="360deg")
         pvb_vol = geom.structure.Volume("vol"+pvb_name, shape=pvb_shape, material=self.pvMaterial)
 
@@ -331,7 +331,7 @@ class GArTPCBuilder(gegede.builder.Builder):
         xpos = self.ChamberLength/2-(R-h)
         print("PV Endcap gas put at xpos", xpos)
 
-        pv_rInner = self.ChamberRadius
+        pv_rInner = self.ChamberRadius + self.SmallGap
         pvHalfLength = self.ChamberLength/2
         pv_rmin = pv_rInner
 
@@ -343,28 +343,28 @@ class GArTPCBuilder(gegede.builder.Builder):
 
         print("h, x, q, R, dtheta = ", h, x, q, R, dtheta)
 
-        pvec_name =  "Endcap Gas"
-        pvec_shape = geom.shapes.Sphere(pvec_name + " shape", rmin=Q("0cm"), rmax=R-self.SmallGap, sphi="0deg", dphi="360deg", stheta="0deg", dtheta=dtheta)
+        pvec_name =  "Endcap_Gas"
+        pvec_shape = geom.shapes.Sphere(pvec_name + "_shape", rmin=Q("0cm"), rmax=R-self.SmallGap, sphi="0deg", dphi="360deg", stheta="0deg", dtheta=dtheta)
 
         # build the pressure vessel barrel
-        pvb_name = "Gas to subtract"
+        pvb_name = "Gas_to_subtract"
         pvb_shape = geom.shapes.Tubs(pvb_name,rmax=self.ChamberRadius-self.pvThickness, dz=self.ChamberLength/2 + abs(xpos) + self.SmallGap)
         
-        endcaps_shape = geom.shapes.Boolean('Gas Endcaps subtract inner barrel', type='subtraction', first=pvec_shape, second=pvb_shape)
+        endcaps_shape = geom.shapes.Boolean('Gas_Endcaps_subtract_inner_barrel', type='subtraction', first=pvec_shape, second=pvb_shape)
         
-        pvec_vol = geom.structure.Volume("Gas Endcaps vol ", shape=endcaps_shape, material=self.GasType)
+        pvec_vol = geom.structure.Volume("Gas_Endcaps_vol", shape=endcaps_shape, material=self.GasType)
         
         # The gas volumes are sensitive detectors
-        pvec_vol.params.append(('SensDet',"Gas Endcaps vol"))
+        pvec_vol.params.append(('SensDet',"Gas_Endcaps_vol"))
         
         for side in ["L", "R"]:
             yrot = "0deg" if side == 'L' else "180deg"
             if side == 'R':
                 xpos = -xpos
             # print("xpos = ", xpos)
-            pvec_rot = geom.structure.Rotation("Gas Endcap "+side+"_rot", y=yrot)
-            pvec_pos = geom.structure.Position("Gas Endcap "+side+"_pos", z=xpos)
-            pvec_pla = geom.structure.Placement("Gas Endcap "+side+"_pla", volume=pvec_vol, pos=pvec_pos, rot=pvec_rot)
+            pvec_rot = geom.structure.Rotation("Gas_Endcap_"+side+"_rot", y=yrot)
+            pvec_pos = geom.structure.Position("Gas_Endcap_"+side+"_pos", z=xpos)
+            pvec_pla = geom.structure.Placement("Gas_Endcap_"+side+"_pla", volume=pvec_vol, pos=pvec_pos, rot=pvec_rot)
             main_lv.placements.append(pvec_pla.name)
 
         ###########################################
@@ -385,7 +385,7 @@ class GArTPCBuilder(gegede.builder.Builder):
         # build the pressure vessel endcaps
         pv_rInner = self.ChamberRadius
         pvHalfLength = self.ChamberLength/2
-        pv_rmin = pv_rInner
+        pv_rmin = pv_rInner + self.SmallGap
         pv_rmax = pv_rmin + self.pvThickness
         
         h = self.EndCapBulge
@@ -396,18 +396,18 @@ class GArTPCBuilder(gegede.builder.Builder):
         
         print("h, x, q, R, dtheta = ", h, x, q, R, dtheta)
 
-        pvec_name = "PV Endcap"
+        pvec_name = "PV_Endcap"
         pvec_shape = geom.shapes.Sphere(pvec_name, rmin=R, rmax=R + self.pvThickness, sphi="0deg", dphi="360deg", stheta="0deg", dtheta=dtheta)
-        pvec_vol = geom.structure.Volume("vol "+pvec_name, shape=pvec_shape, material=self.pvMaterial)
+        pvec_vol = geom.structure.Volume("vol_"+pvec_name, shape=pvec_shape, material=self.pvMaterial)
         
         for side in ["L", "R"]:
             yrot = "0deg" if side == 'L' else "180deg"
             if side == 'R':
                 xpos = -xpos
             # print("xpos = ", xpos)
-            pvec_rot = geom.structure.Rotation("PV Endcap "+side+"_rot", y=yrot)
-            pvec_pos = geom.structure.Position("PV Endcap "+side+"_pos", z=xpos)
-            pvec_pla = geom.structure.Placement("PV Endcap "+side+"_pla", volume=pvec_vol, pos=pvec_pos, rot=pvec_rot)
+            pvec_rot = geom.structure.Rotation("PV_Endcap_"+side+"_rot", y=yrot)
+            pvec_pos = geom.structure.Position("PV_Endcap_"+side+"_pos", z=xpos)
+            pvec_pla = geom.structure.Placement("PV_Endcap_"+side+"_pla", volume=pvec_vol, pos=pvec_pos, rot=pvec_rot)
             main_lv.placements.append(pvec_pla.name)
 
         print("-------------------------------------------------")
@@ -466,20 +466,20 @@ class GArTPCBuilder(gegede.builder.Builder):
         print("First ring offset from the center (from the OROC side) = " + str(ringOffset))
         # Based on 43 mm offset between the terminator and the first ring
 
-        self.construct_cathode(geom,"Cathode ",pos0,rot1,lv)
-        self.construct_fieldcagering(geom,"FC ring number " + str(0),pos0, ringOffset, rot1,lv)
+        self.construct_cathode(geom,"Cathode",pos0,rot1,lv)
+        self.construct_fieldcagering(geom,"FC_ringN_" + str(0),pos0, ringOffset, rot1,lv)
         print("Ring " + str(0) + " position in z = " + str(ringOffset))
         
         for ring in range(1,int(self.fcNRings)):
-            self.construct_fieldcagering(geom,"FC ring number " + str(ring),pos0, ringOffset - ring*self.fcRingSpacing, rot1,lv)
+            self.construct_fieldcagering(geom,"FC_ringN_" + str(ring),pos0, ringOffset - ring*self.fcRingSpacing, rot1,lv)
             print("Ring " + str(ring) + " position in z = " + str(ringOffset - ring*self.fcRingSpacing))
     
-        self.construct_terminator_holder(geom,"Terminator holder ",pos0,rot1,lv)
-        self.construct_terminator_bottom(geom,"Terminator bottom ",pos0,rot1,lv)
-        self.construct_terminator_left(geom,"Terminator left ",pos0,rot3,lv) 
-        self.construct_terminator_right(geom,"Terminator right ",pos0,rot4,lv)
-        self.construct_oroc_main(geom,"OROC alu  main ",pos0,rot2,lv) 
-        self.construct_oroc_frame(geom,"OROC alu frame ",pos0,rot2,lv)
+        self.construct_terminator_holder(geom,"Terminator_holder",pos0,rot1,lv)
+        self.construct_terminator_bottom(geom,"Terminator_bottom",pos0,rot1,lv)
+        self.construct_terminator_left(geom,"Terminator_left",pos0,rot3,lv) 
+        self.construct_terminator_right(geom,"Terminator_right",pos0,rot4,lv)
+        self.construct_oroc_main(geom,"OROC_alu_main",pos0,rot2,lv) 
+        self.construct_oroc_frame(geom,"OROC_alu_frame",pos0,rot2,lv)
 
     def construct_cathode(self, geom, name, pos_vec,rot, lv):
         # Cathode is 10.5 mm from the end of the rails (on the cathode side)
@@ -516,22 +516,22 @@ class GArTPCBuilder(gegede.builder.Builder):
         c_dZthickness = self.CathodeThickness/2 #half width as usual
 
         print("1) Cathode Mesh Holder ")
-        c_holder_shape = geom.shapes.Tubs(name+"cathode holder shape", rmax = c_holder_rOuter,rmin=c_holder_rInner, dz = c_holder_thickness)
-        c_holder_vol = geom.structure.Volume(name+'cathode holder vol', shape=c_holder_shape, material=c_holder_material)
-        c_holder_pla = geom.structure.Placement(name+'cathode holder place', volume=c_holder_vol, pos=tpc_pos, rot=tpc_rot)
+        c_holder_shape = geom.shapes.Tubs(name+"cathode_holder_shape", rmax = c_holder_rOuter,rmin=c_holder_rInner, dz = c_holder_thickness)
+        c_holder_vol = geom.structure.Volume(name+'cathode_holder_vol', shape=c_holder_shape, material=c_holder_material)
+        c_holder_pla = geom.structure.Placement(name+'cathode_holder_place', volume=c_holder_vol, pos=tpc_pos, rot=tpc_rot)
         
         lv.placements.append(c_holder_pla.name)
 
         print("2) Cathode Mesh ")
-        c_shape = geom.shapes.Tubs(name+"cathode shape", rmax = c_rOuter,rmin=c_rInner, dz = c_dZthickness)
-        c_vol = geom.structure.Volume(name+'cathode vol', shape=c_shape, material=c_material)
-        c_pla = geom.structure.Placement(name+'cathode place', volume=c_vol, pos=tpc_pos, rot=tpc_rot)        
+        c_shape = geom.shapes.Tubs(name+"cathode_shape", rmax = c_rOuter,rmin=c_rInner, dz = c_dZthickness)
+        c_vol = geom.structure.Volume(name+'cathode_vol', shape=c_shape, material=c_material)
+        c_pla = geom.structure.Placement(name+'cathode_place', volume=c_vol, pos=tpc_pos, rot=tpc_rot)        
         
         lv.placements.append(c_pla.name)
 
     def construct_fieldcagering(self,geom,name,pos_vec, offset, rot,lv):
         '''Construct 1 field cage ring.'''
-        print("Construct Field Cage " + name)
+        print("Construct_Field_Cage " + name)
         
         # field cage position
         # field cage rotation
@@ -544,9 +544,9 @@ class GArTPCBuilder(gegede.builder.Builder):
         fc_dZring = self.fcRingThickness
         fc_material = self.fcMaterial # copper
 
-        fc_shape = geom.shapes.Tubs(name+"field cage shape", rmax = fc_rOuter,rmin=fc_rInner, dz = fc_dZring)
-        fc_vol = geom.structure.Volume(name+'field cage vol', shape=fc_shape, material=fc_material)
-        fc_pla = geom.structure.Placement(name+'field cage placement', volume=fc_vol, pos=tpc_pos, rot=tpc_rot)
+        fc_shape = geom.shapes.Tubs(name+"field_cage_shape", rmax = fc_rOuter,rmin=fc_rInner, dz = fc_dZring)
+        fc_vol = geom.structure.Volume(name+'field_cage_vol', shape=fc_shape, material=fc_material)
+        fc_pla = geom.structure.Placement(name+'field_cage_placement', volume=fc_vol, pos=tpc_pos, rot=tpc_rot)
         
         lv.placements.append(fc_pla.name)
     
@@ -568,9 +568,9 @@ class GArTPCBuilder(gegede.builder.Builder):
         t_holder_material =  self.TerminatorHolderMaterial 
         # made of PVC
 
-        t_holder_shape = geom.shapes.Tubs(name+"terminator holder shape ", rmax = t_holder_rOuter,rmin=t_holder_rInner, dz = t_holder_thickness)
-        t_holder_vol = geom.structure.Volume(name+'terminator holder vol ', shape=t_holder_shape, material=t_holder_material)
-        t_holder_pla = geom.structure.Placement(name+'terminator holder place ', volume=t_holder_vol, pos=tpc_pos, rot=tpc_rot)
+        t_holder_shape = geom.shapes.Tubs(name+"terminator_holder_shape", rmax = t_holder_rOuter,rmin=t_holder_rInner, dz = t_holder_thickness)
+        t_holder_vol = geom.structure.Volume(name+'terminator_holder_vol', shape=t_holder_shape, material=t_holder_material)
+        t_holder_pla = geom.structure.Placement(name+'terminator_holder_place', volume=t_holder_vol, pos=tpc_pos, rot=tpc_rot)
         
         lv.placements.append(t_holder_pla.name)
 
@@ -597,14 +597,14 @@ class GArTPCBuilder(gegede.builder.Builder):
         oroc_dy2 =  self.orocHeight_dz /2.2  # height
         oroc_dz = self.TerminatorThickness/2 + Q("1cm")
 
-        t_shape = geom.shapes.Tubs(name+"terminator shape 1", rmax = t_rOuter,rmin=t_rInner, dz = t_dZthickness, dphi = Q("180deg"), sphi = Q("180deg")) # lower circle
-        oroc_shape = geom.shapes.Trapezoid(name + "oroc shape", dx1=oroc_dx1, dx2=oroc_dx2, dy1=oroc_dy1, dy2=oroc_dy2, dz=oroc_dz)
+        t_shape = geom.shapes.Tubs(name+"_terminator_shape_1", rmax = t_rOuter,rmin=t_rInner, dz = t_dZthickness, dphi = Q("180deg"), sphi = Q("180deg")) # lower circle
+        oroc_shape = geom.shapes.Trapezoid(name + "_oroc_shape", dx1=oroc_dx1, dx2=oroc_dx2, dy1=oroc_dy1, dy2=oroc_dy2, dz=oroc_dz)
 
         # boolean
-        subtract_terminator = geom.shapes.Boolean(name + 'Terminator subtract', type='subtraction', first=t_shape, second=oroc_shape)
+        subtract_terminator = geom.shapes.Boolean(name + '_terminator_subtract', type='subtraction', first=t_shape, second=oroc_shape)
 
-        terminator_vol = geom.structure.Volume(name + "terminator vol 1", shape=subtract_terminator, material=t_material)
-        terminator_pla = geom.structure.Placement(name+'terminator place 1', volume=terminator_vol, pos=tpc_pos, rot=tpc_rot)
+        terminator_vol = geom.structure.Volume(name + "_terminator_vol_1", shape=subtract_terminator, material=t_material)
+        terminator_pla = geom.structure.Placement(name+'_terminator_place_1', volume=terminator_vol, pos=tpc_pos, rot=tpc_rot)
 
         lv.placements.append(terminator_pla.name)
 
@@ -632,14 +632,14 @@ class GArTPCBuilder(gegede.builder.Builder):
         oroc_dy2 =  self.orocHeight_dz/2  # height
         oroc_dz = self.TerminatorThickness/2 + Q("1cm")
 
-        t_shape = geom.shapes.Tubs(name+"terminator shape 2", rmax = t_rOuter,rmin=t_rInner, dz = t_dZthickness, dphi = Q("180deg"), sphi = Q("270deg")) # right circle
-        oroc_shape = geom.shapes.Trapezoid(name + "oroc shape", dx1=oroc_dx1, dx2=oroc_dx2, dy1=oroc_dy1, dy2=oroc_dy2, dz=oroc_dz)
+        t_shape = geom.shapes.Tubs(name+"_terminator_shape_2", rmax = t_rOuter,rmin=t_rInner, dz = t_dZthickness, dphi = Q("180deg"), sphi = Q("270deg")) # right circle
+        oroc_shape = geom.shapes.Trapezoid(name + "_oroc_shape", dx1=oroc_dx1, dx2=oroc_dx2, dy1=oroc_dy1, dy2=oroc_dy2, dz=oroc_dz)
 
         # boolean
-        subtract_terminator = geom.shapes.Boolean(name + 'Terminator subtract', type='subtraction', first=t_shape, second=oroc_shape)
+        subtract_terminator = geom.shapes.Boolean(name + '_terminator_subtract', type='subtraction', first=t_shape, second=oroc_shape)
 
-        terminator_vol = geom.structure.Volume(name + "terminator vol 2", shape=subtract_terminator, material=t_material)
-        terminator_pla = geom.structure.Placement(name+'terminator place 2', volume=terminator_vol, pos=tpc_pos, rot=tpc_rot)
+        terminator_vol = geom.structure.Volume(name + "_terminato_vol_2", shape=subtract_terminator, material=t_material)
+        terminator_pla = geom.structure.Placement(name+'_terminator_place_2', volume=terminator_vol, pos=tpc_pos, rot=tpc_rot)
 
         lv.placements.append(terminator_pla.name)
 
@@ -667,14 +667,14 @@ class GArTPCBuilder(gegede.builder.Builder):
         oroc_dy2 =  self.orocHeight_dz/2  # height
         oroc_dz = self.TerminatorThickness/2 + Q("1cm")
 
-        t_shape = geom.shapes.Tubs(name+"terminator shape 3", rmax = t_rOuter,rmin=t_rInner, dz = t_dZthickness, dphi = Q("180deg"), sphi = Q("90deg")) # left circle 
-        oroc_shape = geom.shapes.Trapezoid(name + "oroc shape", dx1=oroc_dx1, dx2=oroc_dx2, dy1=oroc_dy1, dy2=oroc_dy2, dz=oroc_dz)
+        t_shape = geom.shapes.Tubs(name+"terminator_shape_3", rmax = t_rOuter,rmin=t_rInner, dz = t_dZthickness, dphi = Q("180deg"), sphi = Q("90deg")) # left circle 
+        oroc_shape = geom.shapes.Trapezoid(name + "oroc_shape", dx1=oroc_dx1, dx2=oroc_dx2, dy1=oroc_dy1, dy2=oroc_dy2, dz=oroc_dz)
 
         # boolean
-        subtract_terminator = geom.shapes.Boolean(name + 'Terminator subtract', type='subtraction', first=t_shape, second=oroc_shape)
+        subtract_terminator = geom.shapes.Boolean(name + '_terminator_subtract', type='subtraction', first=t_shape, second=oroc_shape)
 
-        terminator_vol = geom.structure.Volume(name + "terminator vol 3", shape=subtract_terminator, material=t_material)
-        terminator_pla = geom.structure.Placement(name+'terminator place 3', volume=terminator_vol, pos=tpc_pos, rot=tpc_rot)
+        terminator_vol = geom.structure.Volume(name + "_terminator_vol_3", shape=subtract_terminator, material=t_material)
+        terminator_pla = geom.structure.Placement(name+'_terminator_place_3', volume=terminator_vol, pos=tpc_pos, rot=tpc_rot)
 
         lv.placements.append(terminator_pla.name)
 
@@ -701,9 +701,9 @@ class GArTPCBuilder(gegede.builder.Builder):
         oroc_dz = self.orocHeight_dz /2 # height
         oroc_material = self.orocMaterial
         
-        oroc_shape = geom.shapes.Trapezoid(name + "OROC main shape ", dx1=oroc_dx1, dx2=oroc_dx2, dy1=oroc_dy1, dy2=oroc_dy2, dz=oroc_dz)
-        oroc_vol = geom.structure.Volume(name + "OROC main vol ", shape=oroc_shape, material=oroc_material)
-        oroc_pla = geom.structure.Placement(name+'OROC main place ', volume=oroc_vol, pos=tpc_pos, rot=tpc_rot)
+        oroc_shape = geom.shapes.Trapezoid(name + "_OROC_main_shape", dx1=oroc_dx1, dx2=oroc_dx2, dy1=oroc_dy1, dy2=oroc_dy2, dz=oroc_dz)
+        oroc_vol = geom.structure.Volume(name + "_OROC_main_vol", shape=oroc_shape, material=oroc_material)
+        oroc_pla = geom.structure.Placement(name+'_OROC_main_place', volume=oroc_vol, pos=tpc_pos, rot=tpc_rot)
 
         lv.placements.append(oroc_pla.name)
 
@@ -750,14 +750,14 @@ class GArTPCBuilder(gegede.builder.Builder):
         ver_div_dz = oroc_dz_2 # height
 
         # Central vertical division
-        vertical_division = geom.shapes.Trapezoid(name + "vertical division ", dx1=ver_div_dx1, dx2=ver_div_dx2, dy1=ver_div_dy1, dy2= ver_div_dy2, dz= ver_div_dz)
+        vertical_division = geom.shapes.Trapezoid(name + "_vertical_division", dx1=ver_div_dx1, dx2=ver_div_dx2, dy1=ver_div_dy1, dy2= ver_div_dy2, dz= ver_div_dz)
         
-        oroc_shape_outer = geom.shapes.Trapezoid(name + "OROC frame shape outer ", dx1=oroc_dx1, dx2=oroc_dx2, dy1=oroc_dy1, dy2=oroc_dy2, dz=oroc_dz)
-        oroc_shape_inner = geom.shapes.Trapezoid(name + "OROC frame shape inner ", dx1=oroc_dx1_2, dx2=oroc_dx2_2, dy1=oroc_dy1_2, dy2=oroc_dy2_2, dz=oroc_dz_2)
-        oroc_shape_1 = geom.shapes.Boolean(name + 'OROC frame shape 1', type='subtraction', first=oroc_shape_outer, second=oroc_shape_inner)
-        oroc_shape = geom.shapes.Boolean(name + 'OROC frame shape', type='union', first=oroc_shape_1, second=vertical_division)
-        oroc_vol = geom.structure.Volume(name + "OROC frame vol ", shape=oroc_shape, material=oroc_material)
-        oroc_pla = geom.structure.Placement(name+'OROC frame place ', volume=oroc_vol, pos=tpc_pos, rot=tpc_rot)
+        oroc_shape_outer = geom.shapes.Trapezoid(name + "_OROC_frame_shape_outer", dx1=oroc_dx1, dx2=oroc_dx2, dy1=oroc_dy1, dy2=oroc_dy2, dz=oroc_dz)
+        oroc_shape_inner = geom.shapes.Trapezoid(name + "_OROC_frame_shape_inner", dx1=oroc_dx1_2, dx2=oroc_dx2_2, dy1=oroc_dy1_2, dy2=oroc_dy2_2, dz=oroc_dz_2)
+        oroc_shape_1 = geom.shapes.Boolean(name + '_OROC_frame_shape_1', type='subtraction', first=oroc_shape_outer, second=oroc_shape_inner)
+        oroc_shape = geom.shapes.Boolean(name + '_OROC_frame_shape', type='union', first=oroc_shape_1, second=vertical_division)
+        oroc_vol = geom.structure.Volume(name + "_OROC_frame_vol", shape=oroc_shape, material=oroc_material)
+        oroc_pla = geom.structure.Placement(name+'_OROC_frame_place', volume=oroc_vol, pos=tpc_pos, rot=tpc_rot)
 
         lv.placements.append(oroc_pla.name)
     
