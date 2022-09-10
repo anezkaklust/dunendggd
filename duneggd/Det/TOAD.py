@@ -70,7 +70,7 @@ class TOAD_Builder(gegede.builder.Builder):
         tpc_vol = tpc_builder.get_volume()
         print(tpc_vol)
 
-        rot = geom.structure.Rotation("Rotation (x<->z)", y="90deg")
+        rot = geom.structure.Rotation("Rotation_xz", y="90deg")
 
         tpc_pla = geom.structure.Placement("GArTPC"+"_pla", volume=tpc_vol, rot = rot )
         # Place it in the main lv
