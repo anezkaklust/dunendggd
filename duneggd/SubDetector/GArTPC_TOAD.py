@@ -68,6 +68,9 @@ class GArTPCBuilder(gegede.builder.Builder):
         self.Material = 'Air' # material  of the boudning volume
         self.Drift = drift
         self.SmallGap = Q('0.001mm') # safety for overlaps
+        self.DriftStepLimit = "10 mm" 
+        # to define drift, following GArTPC.py TPCStepLimit
+        # to define sens det active volume
 
         # The gas
         if type(GasType)==str:
@@ -283,7 +286,7 @@ class GArTPCBuilder(gegede.builder.Builder):
                                                shape=tpc_chamber_shape)
         
         # The gas volumes are sensitive detectors
-        tpc_chamber_lv.params.append(('SensDet',"Gas Barrel vol"))
+        #tpc_chamber_lv.params.append(('SensDet',"Gas Barrel vol"))
 
         # Place into main LV
         pos = [Q('0m'),Q('0m'),Q('0m')]
@@ -480,6 +483,48 @@ class GArTPCBuilder(gegede.builder.Builder):
         self.construct_terminator_right(geom,"Terminator_right",pos0,rot4,lv)
         self.construct_oroc_main(geom,"OROC_alu_main",pos0,rot2,lv) 
         self.construct_oroc_frame(geom,"OROC_alu_frame",pos0,rot2,lv)
+        
+        self.construct_drift(geom, "TPC_Drift",pos0,rot1,lv ) 
+
+        # new to solve issues with energy deposits
+        # need to define drift volume between OROC and cathode within the field cage
+
+    def construct_drift(self,geom,name,pos_vec,rot,lv):
+        '''Construct drift region between OROC and cathode within the field cage.'''
+        print("Construct drift region " + name)
+
+        oroc_main = self.RailLength/2 - self.TerminatorOffset + self.TerminatorOROCoffset # positive number
+        print("OROC main starts at " + str(oroc_main))
+        cathode =  self.RailLength/2 - Q("10.5mm")# negative number
+        print("Cathode starts at " + str(cathode))
+        drift_dZ = abs(abs(cathode) + oroc_main)/2
+        offset = abs(abs(cathode) + oroc_main)/4 + oroc_main + self.orocThickness_dy1/2
+        print("Drift offset " +  str(offset))
+        # need to update the proper location and dZ
+
+        # field cage position
+        # field cage rotation
+        tpc_rot = geom.structure.Rotation(name+'_rot',rot[0],rot[1],rot[2])
+        pos = [ x*self.SmallGap for x in pos_vec]
+        tpc_pos = geom.structure.Position(name+'_pos',pos[0],pos[1],pos[2] - offset)
+        
+        drift_rOuter = self.fcInnerRadius 
+        # outer radius of the drift volume is the inner radius of the field cage
+        drift_material = self.GasType # gas 
+        # use "Kapton" to distinguish using colour
+        # need to calculate position offset so the drift is exactly between the OROC and the cathode
+
+        drift_shape = geom.shapes.Tubs(name+"drift_shape", rmax = drift_rOuter,rmin=Q("0cm"), dz = drift_dZ)
+        drift_vol = geom.structure.Volume(name+'drift_vol', shape=drift_shape, material=drift_material)
+        drift_pla = geom.structure.Placement(name+'drift_placement', volume=drift_vol, pos=tpc_pos, rot=tpc_rot)
+        
+        # The gas volumes are sensitive detectors
+        drift_vol.params.append(('SensDet',name))
+        # Add the step limit size for the TPC sensitive volume
+        drift_vol.params.append(('StepLimit', self.DriftStepLimit))
+        
+        lv.placements.append(drift_pla.name)
+        # In GArTPC, field-cage and readout plane defined here
 
     def construct_cathode(self, geom, name, pos_vec,rot, lv):
         # Cathode is 10.5 mm from the end of the rails (on the cathode side)
@@ -688,6 +733,7 @@ class GArTPCBuilder(gegede.builder.Builder):
         offset_z = self.RailLength/2 - self.TerminatorOffset + self.TerminatorOROCoffset + self.orocThickness_dy1/2
         print("OROC main position in y " + str(offset_y))
         print("OROC main position in z " + str(offset_z))
+        print(offset_z)
 
         tpc_rot = geom.structure.Rotation(name+'_rot',rot[0],rot[1],rot[2])
         pos = [ x*self.SmallGap for x in pos_vec]
