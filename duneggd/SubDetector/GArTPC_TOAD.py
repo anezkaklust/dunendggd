@@ -484,7 +484,7 @@ class GArTPCBuilder(gegede.builder.Builder):
         self.construct_oroc_main(geom,"OROC_alu_main",pos0,rot2,lv) 
         self.construct_oroc_frame(geom,"OROC_alu_frame",pos0,rot2,lv)
         
-        self.construct_drift(geom, "TPC_Drift",pos0,rot1,lv ) 
+        #self.construct_drift(geom, "TPC_Drift",pos0,rot1,lv ) 
 
         # new to solve issues with energy deposits
         # need to define drift volume between OROC and cathode within the field cage
